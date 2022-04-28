@@ -96,11 +96,13 @@
         vec4 u = vec4(z, 1., 0.);
         vec4 v;
         int edge = -1;
-        vec3 color = vec3(1.);
+        int first_edge; /* for test coloring */
+        vec3 color = vec3(0.9, 0.9, 1.);
         for (int k = 0; k < 3; k++) {
           v = stem[k] * u;
           if (dot(v.xy, v.zw) > 0.) {
             edge = k;
+            first_edge = k; /* for test coloring */
             break;
           }
         }
@@ -125,6 +127,7 @@
             break;
           }
         }
+        for (int k = 0; k < first_edge; k++) color = color.gbr;
         fragColor = vec4(color, 1.);
       } else {
         fragColor = vec4(0.);
