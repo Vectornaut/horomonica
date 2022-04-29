@@ -205,8 +205,8 @@
         //
         float diff = sqrt(dot(v.xy - v.zw, v.xy - v.zw)); // |a - b|
         float t_base = m / sqrt(q_a * q_b);
-        float t_left = (m - q_b) / diff;
-        float t_right = (m - q_a) / diff;
+        float t_left = (m - q_b) / (sqrt(q_b) * diff);
+        float t_right = (m - q_a) / (sqrt(q_a) * diff);
         
         // find the nearest edge
         float t_near = t_base;

@@ -1,0 +1,17 @@
+|a/b| = r
+  a/b = r*[cos(phi) + i sin(phi)]
+  a/b = ab' / bb'
+
+cos(phi) = Re[a/b] / |a/b|
+         = Re[ab' / bb'] / |a/b|
+         = Re[ab'] / [|b|^2 * |a/b|]
+         = Re[ab'] / |ab|
+         = <u.xy, u.zw> / sqrt(<u.xy, u.xy><u.zw, u.zw>)
+
+cos(phi_left) = (Re[a/b - 1]) / |a/b - 1|
+              = (Re[a/b] - 1) / |a/b - 1|
+              = (Re[ab' / bb'] - 1) / |a/b - 1|
+              = (Re[ab']/bb' - 1) / |a/b - 1|
+              = (Re[ab'] - bb') / bb'|a/b - 1|
+              = (Re[ab'] - bb') / |bb'||a/b - 1|
+              = (Re[ab'] - bb') / |b'||a - b|
