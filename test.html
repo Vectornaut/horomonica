@@ -211,15 +211,14 @@
         // find the nearest edge
         float t_near = t_base;
         int near_edge = edge;
-        if (abs(t_left) < abs(t_near)) {
+        if (-t_left < abs(t_near)) {
           t_near = t_left;
           near_edge = next_edge[2*edge];
         }
-        if (abs(t_right) < abs(t_near)) {
+        if (-t_right < abs(t_near)) {
           t_near = t_right;
           near_edge = next_edge[2*edge+1];
         }
-        float d_near = 0.5*log((1.+t_near) / (1.-t_near));
         
         // find the conformal scale factor of the Poincare projection
         float proj_scaling = 2. / (1.-r_sq);
@@ -241,11 +240,11 @@
 
 <body>
   <div>
-    <a onclick="flip(3)">flip 3</a> |
-    <a onclick="flip(4)">flip 4</a> |
-    <a onclick="flip(5)">flip 5</a>
+    <button onclick="flip(3)">flip 3</button>
+    <button onclick="flip(4)">flip 4</button>
+    <button onclick="flip(5)">flip 5</button>
   </div>
-  <canvas id="test" width="750" height="750"></canvas>
+  <canvas id="test" width="650" height="650"></canvas>
   
   <script>
     // --- get canvases and hook up interactions ---
