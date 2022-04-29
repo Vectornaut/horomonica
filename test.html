@@ -8,6 +8,7 @@
   <!--<link rel="stylesheet" type="text/css" href="" />-->
   <style>
     body {
+      color: #fefefe;
       background: #020202;
     }
   </style>
@@ -139,7 +140,12 @@
 </head>
 
 <body>
-  <canvas id="test" width="800" height="800"></canvas>
+  <div>
+    <a onclick="flip(3)">flip 3</a> |
+    <a onclick="flip(4)">flip 4</a> |
+    <a onclick="flip(5)">flip 5</a>
+  </div>
+  <canvas id="test" width="750" height="750"></canvas>
   
   <script>
     // --- get canvases and hook up interactions ---
@@ -165,6 +171,73 @@
     var programInfo = twgl.createProgramInfo(ctx, ['pass-vert', 'test-frag']);
     var bufferInfo = twgl.createBufferInfoFromArrays(ctx, arrays);
     
+    // triangulation and shear coordinates
+    half_shear = [7/6, 9/7, 6/9, 6/9, 7/6, 9/7]
+    next_edge = [
+      3, 5+6,
+      4, 3+6,
+      5, 4+6,
+      1+6, 4,
+      2+6, 5,
+      0+6, 3,
+      2, 1,
+      0, 2,
+      1, 0,
+      5+6, 0+6,
+      3+6, 1+6,
+      4+6, 2+6
+    ]
+    n_edges = half_shear.length
+    
+    function left(edge) {
+      return next_edge[2*edge];
+    }
+    
+    function right(edge) {
+      return next_edge[2*edge+1];
+    }
+    
+    function inv(edge) {
+      return (edge + n_edges) % (2*n_edges);
+    }
+    
+    function flip(edge) {
+      // get relevant edges
+      edge_inv = inv(edge);
+      nigh = [right(edge), left(edge), right(edge_inv), left(edge_inv)];
+      nigh_inv = nigh.map(inv);
+      
+      // find new shear coordinates
+      half_shear_edge_old = half_shear[edge % n_edges];
+      half_shear_edge_new = 1 / half_shear_edge_old;
+      shear_edge_old = half_shear_edge_old * half_shear_edge_old;
+      half_shear_even_mult = Math.sqrt(1 + shear_edge_old);
+      half_shear_odd_mult = Math.sqrt(1 / (1 + 1 /shear_edge_old));
+      
+      // update shear coordinates
+      half_shear[edge % n_edges] = half_shear_edge_new;
+      half_shear[nigh[0] % n_edges] *= half_shear_even_mult;
+      half_shear[nigh[1] % n_edges] *= half_shear_odd_mult;
+      half_shear[nigh[2] % n_edges] *= half_shear_even_mult;
+      half_shear[nigh[3] % n_edges] *= half_shear_odd_mult;
+      
+      // update paths out of quadrilateral
+      next_edge[2*edge+1] = nigh[1];
+      next_edge[2*edge] = nigh[2];
+      next_edge[2*edge_inv+1] = nigh[3];
+      next_edge[2*edge_inv] = nigh[0];
+      
+      // update paths into quadrilateral
+      next_edge[2*nigh_inv[0]] = nigh[3];
+      next_edge[2*nigh_inv[0]+1] = edge;
+      next_edge[2*nigh_inv[1]] = edge_inv;
+      next_edge[2*nigh_inv[1]+1] = nigh[2];
+      next_edge[2*nigh_inv[2]] = nigh[1];
+      next_edge[2*nigh_inv[2]+1] = edge_inv;
+      next_edge[2*nigh_inv[3]] = edge;
+      next_edge[2*nigh_inv[3]+1] = nigh[0];
+    }
+    
     // --- define rendering routine ---
     
     function render(time) {
@@ -178,21 +251,8 @@
         resolution: [ctx.canvas.width, ctx.canvas.height],
         shortdim: Math.min(ctx.canvas.width, ctx.canvas.height),
         dpr: window.devicePixelRatio,
-        half_shear: [7/6, 9/7, 6/9, 6/9, 7/6, 9/7],
-        next_edge: [
-          3, 5+6,
-          4, 3+6,
-          5, 4+6,
-          1+6, 4,
-          2+6, 5,
-          0+6, 3,
-          2, 1,
-          0, 2,
-          1, 0,
-          5+6, 0+6,
-          3+6, 1+6,
-          4+6, 2+6
-        ],
+        half_shear: half_shear,
+        next_edge: next_edge,
         n_edges: 6
       });
       twgl.drawBufferInfo(ctx, bufferInfo);
