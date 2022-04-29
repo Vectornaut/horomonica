@@ -9,7 +9,7 @@
   <style>
     body {
       color: #fefefe;
-      background: #020202;
+      background: #040404;
     }
   </style>
   
@@ -52,6 +52,47 @@
     uniform float half_shear[128];
     uniform int n_edges;
     
+    // --- pixel sampling ---
+    
+    const float A1 = 0.278393;
+    const float A2 = 0.230389;
+    const float A3 = 0.000972;
+    const float A4 = 0.078108;
+    
+    // Abramowitz and Stegun, equation 7.1.27
+    float erfc_appx(float t) {
+      float r = abs(t);
+      float p = 1. + A1*(r + A2*(r + A3*(r + A4*r)));
+      float p_sq = p*p;
+      float erfc_r = 1. / (p_sq*p_sq);
+      return t < 0. ? (2. - erfc_r) : erfc_r;
+    }
+    
+    // how much of a pixel's sampling distribution falls on a thickened line.
+    // `width` is the line thickness, in pixels. `pattern_disp` is the pixel's
+    // displacement from the line in pattern space
+    float line_part(float width, float pattern_disp, float scaling, float r_px) {
+      // find the displacement to the edge in the screen tangent space
+      float screen_disp = pattern_disp / scaling;
+      float screen_disp_px = screen_disp / r_px;
+      
+      // integrate our pixel's sampling distribution on the screen tangent space to
+      // find out how much of the pixel falls within `width/2` of the line
+      float lower = erfc_appx(screen_disp_px - 0.5*width);
+      float upper = erfc_appx(screen_disp_px + 0.5*width);
+      return 0.5*(lower - upper);
+    }
+    
+    vec3 line_mix(vec3 stroke, vec3 bg, float width, float pattern_disp, float scaling, float r_px) {
+      return mix(bg, stroke, line_part(width, pattern_disp, scaling, r_px));
+    }
+    
+    vec4 line_mix(vec4 stroke, vec4 bg, float width, float pattern_disp, float scaling, float r_px) {
+      return mix(bg, stroke, line_part(width, pattern_disp, scaling, r_px));
+    }
+    
+    // --- triangle walk ---
+    
     // left and right turns
     const mat4 left = mat4(
        1.,  0., 0., 0.,
@@ -65,6 +106,10 @@
       0., 0.,  1.,  0.,
       0., 0.,  0.,  1.
     );
+    
+    // display parameters
+    const float view = 1.02;
+    const vec3 bg_color = vec3(1./128.);
     
     void main() {
       // the isometries that send the sides of the base triangle to the geoesic
@@ -91,8 +136,10 @@
       );
       
       // triangle walk
-      vec2 z = (2.*gl_FragCoord.xy - resolution) / shortdim;
-      if (dot(z, z) < 1.) {
+      float r_px = view / shortdim; // the inner radius of a pixel in the Euclidean metric of the screen
+      vec2 z = r_px * (2.*gl_FragCoord.xy - resolution);
+      float r_sq = dot(z, z);
+      if (r_sq < 1.) {
         // departure
         vec4 u = vec4(z, 1., 0.);
         vec4 v;
@@ -112,15 +159,30 @@
           return;
         }
         
+        // during the walk, we'll use these to see whether we're beyond the left
+        // and right sides of the triangle. when we arrive, we'll use them
+        // to find the signed distances to the sides of the triangle
+        float m; // Re(ab')
+        float q_a; // |a|^2
+        float q_b; // |b|^2
+        
         // later steps
         for (int step = 0; step < 18; step++) {
+          // shear the opposite vertex to 1
           float x = half_shear[edge % n_edges];
           v *= vec4(vec2(1./x), vec2(x));
-          if (dot(v.xy, v.zw) > dot(v.zw, v.zw)) {
+          
+          // set up to find the signed distances to the left and right sides.
+          // we look at `v` as a pair `(a, b)` of complex numbers
+          m = dot(v.xy, v.zw); // Re(ab')
+          q_a = dot(v.xy, v.xy); // |a|^2
+          q_b = dot(v.zw, v.zw); // |b|^2
+          
+          if (m > q_b) {
             v = left * v;
             edge = next_edge[2*edge];
             color.r *= 0.8;
-          } else if (dot(v.zw, v.xy) > dot(v.xy, v.xy)) {
+          } else if (m > q_a) {
             v = right * v;
             edge = next_edge[2*edge+1];
             color.g *= 0.8;
@@ -128,10 +190,48 @@
             break;
           }
         }
+        
+        // --- arrival ---
+        
         for (int k = 0; k < first_edge; k++) color = color.gbr;
+        
+        // the base side of the triangle is the geodesic from 0 to infinity
+        // in the upper half-plane. the curve through `v` which is
+        // equidistant from the base side is a ray which leaves 0 at some
+        // angle `phi`. the distance `d_base` from `v` to the base side is
+        // given by (Series, "Hyperbolic Geometry: MA 448", section 2.2.7)
+        //
+        //   t_base := tanh(d_base) = cos(phi).
+        //
+        float diff = sqrt(dot(v.xy - v.zw, v.xy - v.zw)); // |a - b|
+        float t_base = m / sqrt(q_a * q_b);
+        float t_left = (m - q_b) / diff;
+        float t_right = (m - q_a) / diff;
+        
+        // find the nearest edge
+        float t_near = t_base;
+        int near_edge = edge;
+        if (abs(t_left) < abs(t_near)) {
+          t_near = t_left;
+          near_edge = next_edge[2*edge];
+        }
+        if (abs(t_right) < abs(t_near)) {
+          t_near = t_right;
+          near_edge = next_edge[2*edge+1];
+        }
+        float d_near = 0.5*log((1.+t_near) / (1.-t_near));
+        
+        // find the conformal scale factor of the Poincare projection
+        float proj_scaling = 2. / (1.-r_sq);
+        
+        // area-sample the nearest edge
+        color = line_mix(bg_color, color, 2., t_near, proj_scaling, r_px);
+        
+        // area-sample the disk boundary
+        color = line_mix(bg_color, color, 2., r_sq - 1., 2., r_px);
         fragColor = vec4(color, 1.);
       } else {
-        fragColor = vec4(0.);
+        fragColor = line_mix(vec4(bg_color, 1.), vec4(0.), 2., r_sq - 1., 2., r_px);
       }
     }
   </script>
