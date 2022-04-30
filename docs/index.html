@@ -54,6 +54,7 @@
     uniform int n_edges;
     
     // frame
+    uniform int ref_edge;
     uniform mat4 unframe;
     
     // --- pixel sampling ---
@@ -138,12 +139,18 @@
          0.5,   -h, -1.,  0.,
            h,  0.5,  0., -1.
       );*/
-      /*const mat4 unroll = mat4(
+      const mat4 unroll = mat4(
          0., 1.,  1., 0.,
         -1., 0.,  0., 1.,
          1., 0.,  0., 1.,
          0., 1., -1., 0.
-      );*/
+      );
+      const mat4 half_turn = mat4(
+        0., 0., -1.,  0.,
+        0., 0.,  0., -1.,
+        1., 0.,  0.,  0.,
+        0., 1.,  0.,  0.
+      );
       
       // triangle walk
       float r_px = view / shortdim; // the inner radius of a pixel in the Euclidean metric of the screen
@@ -151,20 +158,20 @@
       float r_sq = dot(z, z);
       if (r_sq < 1.) {
         // departure
-        vec4 v;
-        int edge;
+        vec4 v = unframe * unroll * vec4(z, 1., 0.);
+        int edge = ref_edge;
         /*vec3 color = vec3(0.5, 0., 0.5);*/
-        if (z.x > 0.) {
-          v = unframe * vec4(z, 1., 0.);
+        if (dot(v.xy, v.zw) > 0.) {
+          /*v = unframe * vec4(z, 1., 0.);*/
           /*float x = half_shear[0];
           v = vec4(vec2(1./x), vec2(x)) * (unframe * vec4(z, 1., 0.));*/
-          edge = 0;
+          /*edge = ref_edge;*/
           /*color.g = 1.;*/
         } else {
-          v = unframe * vec4(-z, 1., 0.);
+          v = half_turn * v;
           /*float x = half_shear[0];
           v = vec4(vec2(1./x), vec2(x)) * (unframe * vec4(-z, 1., 0.));*/
-          edge = 6;
+          edge = (edge + 6) % (2*n_edges);
           /*color.g = 0.3;*/
         }
         
@@ -178,7 +185,7 @@
         // later steps
         for (int step = 0; step < 18; step++) {
           // shear the opposite vertex to 1
-          if (edge != 0) {
+          if (edge != ref_edge) {
             float x = half_shear[edge % n_edges];
             v *= vec4(vec2(1./x), vec2(x));
           }
@@ -257,6 +264,7 @@
 
 <body>
   <div>
+    <button onclick="reverse_ref_edge()">reverse</button>
     <button onclick="flip(1)">flip 1</button>
     <button onclick="flip(2)">flip 2</button>
     <button onclick="flip(3)">flip 3</button>
@@ -322,12 +330,15 @@
     //    i -->  inf
     //   -1 --> -1
     //   -i -->  0
-    unframe = mat4.fromValues(
+    ref_edge = 0;
+    /*unframe = mat4.fromValues(
       0, -1, 1,  0,
       1,  0, 0,  1,
       1,  0, 0, -1,
       0,  1, 1,  0
-    );
+    );*/
+    unframe = mat4.create();
+    mat4.identity(unframe);
     
     function left(edge) {
       return next_edge[2*edge];
@@ -339,6 +350,21 @@
     
     function inv(edge) {
       return (edge + n_edges) % (2*n_edges);
+    }
+    
+    function reverse_ref_edge() {
+      ref_edge = inv(ref_edge);
+      x = half_shear[ref_edge % n_edges];
+      mat4.mul(
+        unframe,
+        mat4.fromValues(
+            0,   0, -x,  0,
+            0,   0,  0, -x,
+          1/x,   0,  0,  0,
+            0, 1/x,  0,  0
+        ),
+        unframe
+      );
     }
     
     /*
@@ -365,6 +391,16 @@
       half_shear_even_mult = Math.sqrt(1 + shear_edge_old);
       half_shear_odd_mult = Math.sqrt(1 / (1 + 1 / shear_edge_old));
       
+      // avoid flipping an edge adjacent to the reference edge by reversing the
+      // reference edge if necessary
+      var inv_ref_edge = inv(ref_edge);
+      for (let k = 0; k < 4; k++) {
+        if (nigh[k] == inv_ref_edge) {
+          reverse_ref_edge();
+          break;
+        }
+      }
+      
       // update frame
       /*if (nigh[0] == 0 || nigh[2] == 0) {
         mat4.mul(
@@ -388,29 +424,33 @@
           ),
           unframe
         );
-      } else*/ if (nigh[0] == 6 || nigh[2] == 6) {
+      } else*/
+      /*var inv_ref_edge = inv(ref_edge);
+      if (nigh[0] == inv_ref_edge || nigh[2] == inv_ref_edge) {
+        ref_edge = inv_ref_edge;
         mat4.mul(
           unframe,
           mat4.fromValues(
-            half_shear_even_mult, 0, 0, 0,
-            0, half_shear_even_mult, 0, 0,
             0, 0, 1/half_shear_even_mult, 0,
-            0, 0, 0, 1/half_shear_even_mult
+            0, 0, 0, 1/half_shear_even_mult,
+            half_shear_even_mult, 0, 0, 0,
+            0, half_shear_even_mult, 0, 0
           ),
           unframe
         );
-      } else if (nigh[1] == 6 || nigh[3] == 6) {
+      } else if (nigh[1] == inv_ref_edge || nigh[3] == inv_ref_edge) {
+        ref_edge = inv_ref_edge;
         mat4.mul(
           unframe,
           mat4.fromValues(
-            half_shear_odd_mult, 0, 0, 0,
-            0, half_shear_odd_mult, 0, 0,
             0, 0, 1/half_shear_odd_mult, 0,
-            0, 0, 0, 1/half_shear_odd_mult
+            0, 0, 0, 1/half_shear_odd_mult,
+            half_shear_odd_mult, 0, 0, 0,
+            0, half_shear_odd_mult, 0, 0
           ),
           unframe
         );
-      }
+      }*/
       
       // update shear coordinates
       half_shear[edge % n_edges] = half_shear_edge_new;
@@ -453,6 +493,7 @@
         next_edge: next_edge,
         edge_color: edge_color,
         n_edges: 6,
+        ref_edge: ref_edge,
         unframe: unframe
       });
       twgl.drawBufferInfo(ctx, bufferInfo);
