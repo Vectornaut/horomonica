@@ -250,7 +250,7 @@
     
     // --- get canvases and hook up interactions ---
     
-    testCanvas = document.querySelector('#test');
+    var testCanvas = document.querySelector('#test');
     
     // --- initialize shaders ---
     
@@ -272,8 +272,8 @@
     var bufferInfo = twgl.createBufferInfoFromArrays(ctx, arrays);
     
     // triangulation and shear coordinates
-    half_shear = [7/6, 9/7, 6/9, 6/9, 7/6, 9/7]
-    next_edge = [
+    var half_shear = [7/6, 9/7, 6/9, 6/9, 7/6, 9/7]
+    var next_edge = [
       3, 5+6,
       4, 3+6,
       5, 4+6,
@@ -287,7 +287,7 @@
       3+6, 1+6,
       4+6, 2+6
     ]
-    edge_color = [
+    var edge_color = [
       1.0, 0.0, 0.5,
       1.0, 0.5, 0.0,
       1.0, 1.0, 0.0,
@@ -295,12 +295,19 @@
       0.0, 0.5, 1.0,
       0.5, 0.0, 1.0
     ]
-    n_edges = half_shear.length
+    var n_edges = half_shear.length
     
     // viewpoint
-    ref_edge = 0;
-    unframe = mat4.create();
-    mat4.identity(unframe);
+    var ref_edge = 0;
+    {
+      let x = Math.sqrt(half_shear[ref_edge]);
+      var unframe = mat4.fromValues(
+        1/x,   0, 0, 0,
+        0,   1/x, 0, 0,
+        0,     0, x, 0,
+        0,     0, 0, x
+      );
+    }
     
     function left(edge) {
       return next_edge[2*edge];
@@ -316,7 +323,7 @@
     
     function reverse_ref_edge() {
       ref_edge = inv(ref_edge);
-      x = half_shear[ref_edge % n_edges];
+      let x = half_shear[ref_edge % n_edges];
       mat4.mul(
         unframe,
         mat4.fromValues(
@@ -340,18 +347,18 @@
     */
     function flip(edge) {
       // get relevant edges
-      edge_inv = inv(edge);
-      nigh = [right(edge), left(edge), right(edge_inv), left(edge_inv)];
-      nigh_inv = nigh.map(inv);
+      let edge_inv = inv(edge);
+      let nigh = [right(edge), left(edge), right(edge_inv), left(edge_inv)];
+      let nigh_inv = nigh.map(inv);
       console.log(nigh);
       console.log(nigh_inv);
       
       // find new shear coordinates
-      half_shear_edge_old = half_shear[edge % n_edges];
-      half_shear_edge_new = 1 / half_shear_edge_old;
-      shear_edge_old = half_shear_edge_old * half_shear_edge_old;
-      half_shear_even_mult = Math.sqrt(1 + shear_edge_old);
-      half_shear_odd_mult = Math.sqrt(1 / (1 + 1 / shear_edge_old));
+      let half_shear_edge_old = half_shear[edge % n_edges];
+      let half_shear_edge_new = 1 / half_shear_edge_old;
+      let shear_edge_old = half_shear_edge_old * half_shear_edge_old;
+      let half_shear_even_mult = Math.sqrt(1 + shear_edge_old);
+      let half_shear_odd_mult = Math.sqrt(1 / (1 + 1 / shear_edge_old));
       
       // avoid flipping an edge adjacent to the reference edge by reversing the
       // reference edge if necessary
