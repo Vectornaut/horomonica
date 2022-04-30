@@ -50,6 +50,7 @@
     // triangulation
     uniform int next_edge[512];
     uniform float half_shear[128];
+    uniform vec3 edge_color[128];
     uniform int n_edges;
     
     // frame
@@ -152,16 +153,19 @@
         // departure
         vec4 v;
         int edge;
-        vec3 color = vec3(0.5, 0., 0.5);
+        /*vec3 color = vec3(0.5, 0., 0.5);*/
         if (z.x > 0.) {
           v = unframe * vec4(z, 1., 0.);
+          /*float x = half_shear[0];
+          v = vec4(vec2(1./x), vec2(x)) * (unframe * vec4(z, 1., 0.));*/
           edge = 0;
-          color.g = 1.;
+          /*color.g = 1.;*/
         } else {
-          float x = half_shear[0];
-          v = vec4(vec2(1./x), vec2(x)) * (unframe * vec4(-z, 1., 0.));
+          v = unframe * vec4(-z, 1., 0.);
+          /*float x = half_shear[0];
+          v = vec4(vec2(1./x), vec2(x)) * (unframe * vec4(-z, 1., 0.));*/
           edge = 6;
-          color.g = 0.3;
+          /*color.g = 0.3;*/
         }
         
         // during the walk, we'll use these to see whether we're beyond the left
@@ -173,6 +177,12 @@
         
         // later steps
         for (int step = 0; step < 18; step++) {
+          // shear the opposite vertex to 1
+          if (edge != 0) {
+            float x = half_shear[edge % n_edges];
+            v *= vec4(vec2(1./x), vec2(x));
+          }
+          
           // set up to find the signed distances to the left and right sides.
           // we look at `v` as a pair `(a, b)` of complex numbers
           m = dot(v.xy, v.zw); // Re(ab')
@@ -182,20 +192,20 @@
           if (m > q_b) {
             v = left * v;
             edge = next_edge[2*edge];
-            color.r *= 0.8;
-            color.b = 1. - 0.8*(1. - color.b);
+            /*color.r *= 0.8;
+            color.b = 1. - 0.8*(1. - color.b);*/
           } else if (m > q_a) {
             v = right * v;
             edge = next_edge[2*edge+1];
-            color.r = 1. - 0.8*(1. - color.r);
-            color.b *= 0.8;
+            /*color.r = 1. - 0.8*(1. - color.r);
+            color.b *= 0.8;*/
           } else {
             break;
           }
           
           // shear the opposite vertex to 1
-          float x = half_shear[edge % n_edges];
-          v *= vec4(vec2(1./x), vec2(x));
+          /*float x = half_shear[edge % n_edges];
+          v *= vec4(vec2(1./x), vec2(x));*/
         }
         
         // --- arrival ---
@@ -231,7 +241,7 @@
         float proj_scaling = 2. / (1.-r_sq);
         
         // area-sample the nearest edge
-        color = line_mix(bg_color, color, 2., t_near, proj_scaling, r_px);
+        vec3 color = line_mix(edge_color[near_edge % n_edges], bg_color, 2., t_near, proj_scaling, r_px);
         
         // area-sample the disk boundary
         color = line_mix(bg_color, color, 2., r_sq - 1., 2., r_px);
@@ -297,6 +307,14 @@
       3+6, 1+6,
       4+6, 2+6
     ]
+    edge_color = [
+      1.0, 0.0, 0.0,
+      1.0, 0.5, 0.0,
+      1.0, 1.0, 0.0,
+      0.0, 1.0, 0.0,
+      0.0, 0.5, 1.0,
+      0.5, 0.0, 1.0
+    ]
     n_edges = half_shear.length
     
     // the initial unframing is the map
@@ -323,21 +341,54 @@
       return (edge + n_edges) % (2*n_edges);
     }
     
+    /*
+      flip sequences producing self-glued triangles:
+        1, 3 --> triangle with 1 on two sides
+        3, 5 --> triangle with 4 on two sides
+        4, 5 --> triangle with 5 on two sides
+      flipping a self-glued triangle gives wrong results:
+        3, 5, 4 --> triangle with all sides labeled 4
+        3, 4, 5 --> triangle with all sides labeled 5
+    */
     function flip(edge) {
       // get relevant edges
       edge_inv = inv(edge);
       nigh = [right(edge), left(edge), right(edge_inv), left(edge_inv)];
       nigh_inv = nigh.map(inv);
+      console.log(nigh);
+      console.log(nigh_inv);
       
       // find new shear coordinates
       half_shear_edge_old = half_shear[edge % n_edges];
       half_shear_edge_new = 1 / half_shear_edge_old;
       shear_edge_old = half_shear_edge_old * half_shear_edge_old;
       half_shear_even_mult = Math.sqrt(1 + shear_edge_old);
-      half_shear_odd_mult = Math.sqrt(1 / (1 + 1 /shear_edge_old));
+      half_shear_odd_mult = Math.sqrt(1 / (1 + 1 / shear_edge_old));
       
       // update frame
-      if (nigh[0] == 6 || nigh[2] == 6) {
+      /*if (nigh[0] == 0 || nigh[2] == 0) {
+        mat4.mul(
+          unframe,
+          mat4.fromValues(
+            1/half_shear_even_mult, 0, 0, 0,
+            0, 1/half_shear_even_mult, 0, 0,
+            0, 0, half_shear_even_mult, 0,
+            0, 0, 0, half_shear_even_mult
+          ),
+          unframe
+        );
+      } else if (nigh[1] == 0 || nigh[3] == 0) {
+        mat4.mul(
+          unframe,
+          mat4.fromValues(
+            1/half_shear_odd_mult, 0, 0, 0,
+            0, 1/half_shear_odd_mult, 0, 0,
+            0, 0, half_shear_odd_mult, 0,
+            0, 0, 0, half_shear_odd_mult
+          ),
+          unframe
+        );
+      } else*/ if (nigh[0] == 6 || nigh[2] == 6) {
         mat4.mul(
           unframe,
           mat4.fromValues(
@@ -400,6 +451,7 @@
         dpr: window.devicePixelRatio,
         half_shear: half_shear,
         next_edge: next_edge,
+        edge_color: edge_color,
         n_edges: 6,
         unframe: unframe
       });
