@@ -9,7 +9,13 @@
   <style>
     body {
       color: #fefefe;
-      background: #040404;
+      background-color: #202020;
+    }
+    
+    input {
+      background-color: #202020;
+      border: 1px solid #fefefe;
+      border-radius: 4px;
     }
   </style>
   
@@ -186,8 +192,6 @@
         
         // --- arrival ---
         
-        /*for (int k = 0; k < first_edge; k++) color = color.gbr;*/
-        
         // the base side of the triangle is the geodesic from 0 to infinity
         // in the upper half-plane. the curve through `v` which is
         // equidistant from the base side is a ray which leaves 0 at some
@@ -217,7 +221,7 @@
         float proj_scaling = 2. / (1.-r_sq);
         
         // area-sample the nearest edge
-        vec3 color = line_mix(edge_color[near_edge % n_edges], bg_color, 2., t_near, proj_scaling, r_px);
+        vec3 color = line_mix(edge_color[near_edge % n_edges], bg_color, 4., t_near, proj_scaling, r_px);
         
         // area-sample the disk boundary
         color = line_mix(bg_color, color, 2., r_sq - 1., 2., r_px);
@@ -233,12 +237,11 @@
 
 <body>
   <div>
-    <button onclick="reverse_ref_edge()">reverse</button>
-    <button onclick="flip(1)">flip 1</button>
-    <button onclick="flip(2)">flip 2</button>
-    <button onclick="flip(3)">flip 3</button>
-    <button onclick="flip(4)">flip 4</button>
-    <button onclick="flip(5)">flip 5</button>
+    <input type="button" onclick="flip(1)" style="color: #ff8000" value="flip 1"/>
+    <input type="button" onclick="flip(2)" style="color: #ffff00" value="flip 2"/>
+    <input type="button" onclick="flip(3)" style="color: #00ff00" value="flip 3"/>
+    <input type="button" onclick="flip(4)" style="color: #0080ff" value="flip 4"/>
+    <input type="button" onclick="flip(5)" style="color: #8000ff" value="flip 5"/>
   </div>
   <canvas id="test" width="650" height="650"></canvas>
   
@@ -285,7 +288,7 @@
       4+6, 2+6
     ]
     edge_color = [
-      1.0, 0.0, 0.0,
+      1.0, 0.0, 0.5,
       1.0, 0.5, 0.0,
       1.0, 1.0, 0.0,
       0.0, 1.0, 0.0,
