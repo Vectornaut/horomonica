@@ -53,7 +53,7 @@
     uniform vec3 edge_color[128];
     uniform int n_edges;
     
-    // frame
+    // viewpoint
     uniform int ref_edge;
     uniform mat4 unframe;
     
@@ -117,34 +117,17 @@
     const vec3 bg_color = vec3(1./128.);
     
     void main() {
-      // the isometries that send the sides of the base triangle to the geoesic
-      // from 0 to infinity in the upper half-plane
-      /*mat4 stem[3];
-      const float h = 0.5*sqrt(3.);
-      stem[0] = mat4(
-         1.,  0., -0.5,    h,
-         0.,  1.,   -h, -0.5,
-        -1.,  0.,  0.5,    h,
-         0., -1.,   -h,  0.5
-      );
-      stem[1] = mat4(
-        -0.5,   -h,  1.,  0.,
-           h, -0.5,  0.,  1.,
-         -1.,   0., 0.5,   h,
-          0.,  -1.,   h, 0.5
-      );
-      stem[2] = mat4(
-        -0.5,   -h,  1.,  0.,
-           h, -0.5,  0.,  1.,
-         0.5,   -h, -1.,  0.,
-           h,  0.5,  0., -1.
-      );*/
+      // the mobius transformation that maps the unit disk to the upper half-
+      // plane, fixing 1 and -1
       const mat4 unroll = mat4(
          0., 1.,  1., 0.,
         -1., 0.,  0., 1.,
          1., 0.,  0., 1.,
          0., 1., -1., 0.
       );
+      
+      // the mobius transformation that gives the upper half-plane a half-turn
+      // around `i`
       const mat4 half_turn = mat4(
         0., 0., -1.,  0.,
         0., 0.,  0., -1.,
@@ -160,19 +143,9 @@
         // departure
         vec4 v = unframe * unroll * vec4(z, 1., 0.);
         int edge = ref_edge;
-        /*vec3 color = vec3(0.5, 0., 0.5);*/
-        if (dot(v.xy, v.zw) > 0.) {
-          /*v = unframe * vec4(z, 1., 0.);*/
-          /*float x = half_shear[0];
-          v = vec4(vec2(1./x), vec2(x)) * (unframe * vec4(z, 1., 0.));*/
-          /*edge = ref_edge;*/
-          /*color.g = 1.;*/
-        } else {
+        if (dot(v.xy, v.zw) < 0.) {
           v = half_turn * v;
-          /*float x = half_shear[0];
-          v = vec4(vec2(1./x), vec2(x)) * (unframe * vec4(-z, 1., 0.));*/
           edge = (edge + 6) % (2*n_edges);
-          /*color.g = 0.3;*/
         }
         
         // during the walk, we'll use these to see whether we're beyond the left
@@ -209,10 +182,6 @@
           } else {
             break;
           }
-          
-          // shear the opposite vertex to 1
-          /*float x = half_shear[edge % n_edges];
-          v *= vec4(vec2(1./x), vec2(x));*/
         }
         
         // --- arrival ---
@@ -325,18 +294,8 @@
     ]
     n_edges = half_shear.length
     
-    // the initial unframing is the map
-    //    1 -->  1
-    //    i -->  inf
-    //   -1 --> -1
-    //   -i -->  0
+    // viewpoint
     ref_edge = 0;
-    /*unframe = mat4.fromValues(
-      0, -1, 1,  0,
-      1,  0, 0,  1,
-      1,  0, 0, -1,
-      0,  1, 1,  0
-    );*/
     unframe = mat4.create();
     mat4.identity(unframe);
     
@@ -393,64 +352,12 @@
       
       // avoid flipping an edge adjacent to the reference edge by reversing the
       // reference edge if necessary
-      var inv_ref_edge = inv(ref_edge);
       for (let k = 0; k < 4; k++) {
-        if (nigh[k] == inv_ref_edge) {
+        if (nigh_inv[k] == ref_edge) {
           reverse_ref_edge();
           break;
         }
       }
-      
-      // update frame
-      /*if (nigh[0] == 0 || nigh[2] == 0) {
-        mat4.mul(
-          unframe,
-          mat4.fromValues(
-            1/half_shear_even_mult, 0, 0, 0,
-            0, 1/half_shear_even_mult, 0, 0,
-            0, 0, half_shear_even_mult, 0,
-            0, 0, 0, half_shear_even_mult
-          ),
-          unframe
-        );
-      } else if (nigh[1] == 0 || nigh[3] == 0) {
-        mat4.mul(
-          unframe,
-          mat4.fromValues(
-            1/half_shear_odd_mult, 0, 0, 0,
-            0, 1/half_shear_odd_mult, 0, 0,
-            0, 0, half_shear_odd_mult, 0,
-            0, 0, 0, half_shear_odd_mult
-          ),
-          unframe
-        );
-      } else*/
-      /*var inv_ref_edge = inv(ref_edge);
-      if (nigh[0] == inv_ref_edge || nigh[2] == inv_ref_edge) {
-        ref_edge = inv_ref_edge;
-        mat4.mul(
-          unframe,
-          mat4.fromValues(
-            0, 0, 1/half_shear_even_mult, 0,
-            0, 0, 0, 1/half_shear_even_mult,
-            half_shear_even_mult, 0, 0, 0,
-            0, half_shear_even_mult, 0, 0
-          ),
-          unframe
-        );
-      } else if (nigh[1] == inv_ref_edge || nigh[3] == inv_ref_edge) {
-        ref_edge = inv_ref_edge;
-        mat4.mul(
-          unframe,
-          mat4.fromValues(
-            0, 0, 1/half_shear_odd_mult, 0,
-            0, 0, 0, 1/half_shear_odd_mult,
-            half_shear_odd_mult, 0, 0, 0,
-            0, half_shear_odd_mult, 0, 0
-          ),
-          unframe
-        );
-      }*/
       
       // update shear coordinates
       half_shear[edge % n_edges] = half_shear_edge_new;
