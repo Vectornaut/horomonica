@@ -454,18 +454,47 @@
       let half_shear_even_mult = Math.sqrt(1 / (1 + 1 / shear_edge_old));
       let half_shear_odd_mult = Math.sqrt(1 + shear_edge_old);
       
-      // avoid flipping the reference edge by slithering the reference edge to
-      // the left if necessary
-      if (edge == ref_edge || edge_inv == ref_edge) {
-        slither_ref_edge_left();
+      // avoid flipping the reference edge by moving the reference edge if
+      // necessary
+      ref_edge_inv = inv(ref_edge);
+      if ((edge - ref_edge) % n_edges == 0) {
+        if (
+          (left(edge) - right(edge)) % n_edges == 0 ||
+          (left(edge_inv) - right(edge_inv)) % n_edges == 0
+        ) {
+          reverse_ref_edge();
+          slither_ref_edge_left();
+        } else if (
+          (left(edge) - left(edge_inv)) % n_edges == 0 ||
+          (left(edge) - right(edge_inv)) % n_edges == 0
+        ) {
+          slither_ref_edge_right();
+        } else {
+          slither_ref_edge_left();
+        }
       }
       
-      // avoid flipping an edge that the reference edge faces by reversing the
+      // avoid flipping an edge that the reference edge faces by moving the
       // reference edge if necessary
-      for (let k = 0; k < 4; k++) {
-        if (nigh_inv[k] == ref_edge) {
+      ref_edge_inv = inv(ref_edge);
+      if ((left(ref_edge) - edge) % n_edges == 0) {
+        if (
+          (left(ref_edge_inv) - edge) % n_edges == 0 ||
+          (right(ref_edge_inv) - edge) % n_edges == 0
+        ) {
+          slither_ref_edge_right();
+        } else {
           reverse_ref_edge();
-          break;
+        }
+      }
+      if ((right(ref_edge) - edge) % n_edges == 0) {
+        if (
+          (left(ref_edge_inv) - edge) % n_edges == 0 ||
+          (right(ref_edge_inv) - edge) % n_edges == 0
+        ) {
+          slither_ref_edge_left();
+        } else {
+          reverse_ref_edge();
         }
       }
       
