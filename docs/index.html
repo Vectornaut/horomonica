@@ -184,10 +184,13 @@
         0., 1.,  0.,  0.
       );
       
-      // triangle walk
+      // project from the screen to the Poincare disk
       float r_px = view / shortdim; // the inner radius of a pixel in the Euclidean metric of the screen
       vec2 z = r_px * (2.*gl_FragCoord.xy - resolution);
       float r_sq = dot(z, z);
+      float proj_scaling = 2. / (1.-r_sq); // the conformal scale factor of the projection
+      
+      // triangle walk
       if (r_sq < 1.) {
         // departure
         vec4 v = unframe * unroll * vec4(z, 1., 0.);
@@ -204,9 +207,20 @@
         float q_a; // |a|^2
         float q_b; // |b|^2
         
+        // `t_side := tanh(d_side)`, where `d_side` is the distance to a side
+        // of the triangle
+        float t_base;
+        float t_left;
+        float t_right;
+        
+        // color sampling
+        vec4 fg_color = vec4(0.);
+        float fg_alpha = 0.;
+        
         // later steps
         int step; /* for reference edge marking */
-        for (/*int*/ step = 0; step < 18; step++) {
+        const int step_max = 40;
+        for (/*int*/ step = 0; step < step_max; step++) {
           // shear the opposite vertex to 1
           if (step > 0 || edge != ref_edge) {
             float x = half_shear[edge % n_edges];
@@ -218,6 +232,23 @@
           m = dot(v.xy, v.zw); // Re(ab')
           q_a = dot(v.xy, v.xy); // |a|^2
           q_b = dot(v.zw, v.zw); // |b|^2
+          
+          // the base side of the triangle is the geodesic from 0 to infinity
+          // in the upper half-plane. the curve through `v` which is
+          // equidistant from the base side is a ray which leaves 0 at some
+          // angle `phi`. the distance `d_base` from `v` to the base side is
+          // given by (Series, "Hyperbolic Geometry: MA 448", section 2.2.7)
+          //
+          //   t_base := tanh(d_base) = cos(phi)
+          //
+          float t_base = m / sqrt(q_a * q_b);
+          
+          // area-sample the edge
+          if (abs(t_base) < 16.*(proj_scaling * r_px)) {
+            vec4 mix = line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(0.), 4., t_base, proj_scaling, r_px);
+            fg_color += mix;
+            fg_alpha = max(mix.a, fg_alpha);
+          }
           
           if (m > q_a) {
             v = left * v;
@@ -232,18 +263,11 @@
         
         // --- arrival ---
         
-        // the base side of the triangle is the geodesic from 0 to infinity
-        // in the upper half-plane. the curve through `v` which is
-        // equidistant from the base side is a ray which leaves 0 at some
-        // angle `phi`. the distance `d_base` from `v` to the base side is
-        // given by (Series, "Hyperbolic Geometry: MA 448", section 2.2.7)
-        //
-        //   t_base := tanh(d_base) = cos(phi).
-        //
+        // find the hyperbolic tangents of the distances to the left and right
+        // sides
         float diff = sqrt(dot(v.xy - v.zw, v.xy - v.zw)); // |a - b|
-        float t_base = m / sqrt(q_a * q_b);
-        float t_left = (m - q_a) / (sqrt(q_a) * diff);
-        float t_right = (m - q_b) / (sqrt(q_b) * diff);
+        t_left = (m - q_a) / (sqrt(q_a) * diff);
+        t_right = (m - q_b) / (sqrt(q_b) * diff);
         
         // find the nearest edge
         float t_near = t_base;
@@ -266,8 +290,21 @@
           color = mix(color, edge_color[ref_edge % n_edges], 0.4*exp(-3.*m * (exp(-3.*q_a) + exp(-3.*q_b)) / (q_a*exp(-3.*q_a) + q_b*exp(-3.*q_b))));
         }
         
-        // area-sample the nearest edge
-        color = line_mix(edge_color[near_edge % n_edges], color, 4., t_near, proj_scaling, r_px);
+        // area-sample the left and right edges
+        if (abs(t_left) < 16.*(proj_scaling * r_px)) {
+          int left_edge = next_edge[2*edge];
+          vec4 mix = line_mix(vec4(edge_color[left_edge % n_edges], 1.), vec4(0.), 4., t_left, proj_scaling, r_px);
+          fg_color += mix;
+          fg_alpha = max(mix.a, fg_alpha);
+        }
+        if (abs(t_right) < 16.*(proj_scaling * r_px)) {
+          int right_edge = next_edge[2*edge+1];
+          vec4 mix = line_mix(vec4(edge_color[right_edge % n_edges], 1.), vec4(0.), 4., t_right, proj_scaling, r_px);
+          fg_color += mix;
+          fg_alpha = max(mix.a, fg_alpha);
+        }
+        if (fg_alpha > 0.) fg_color /= fg_color.a;
+        color = mix(color, fg_color.rgb, fg_alpha);
         
         // area-sample the disk boundary
         color = line_mix(bg_color, color, 2., r_sq - 1., 2., r_px);
