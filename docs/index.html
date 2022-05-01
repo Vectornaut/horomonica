@@ -190,7 +190,7 @@
       vec2 z = r_px * (2.*gl_FragCoord.xy - resolution);
       float r_sq = dot(z, z);
       float proj_scaling = 2. / (1.-r_sq); // the conformal scale factor of the projection
-      float width = min(4., 60./proj_scaling);
+      float width = /*4.*/min(4., 12./sqrt(0.5*proj_scaling));
       
       // triangle walk
       if (r_sq < 1.) {
@@ -407,14 +407,14 @@
     
     // display parameters
     var bg_color = [1/128, 1/128, 1/128];
-    var bdry_color = bg_color;
-    /*var bdry_color = [0, 0, 0];
+    /*var bdry_color = bg_color;*/
+    var bdry_color = [0, 0, 0];
     for (let c = 0; c < 3; c++) {
       for (let k = 0; k < n_edges; k++) {
         bdry_color[c] += edge_color[3*k+c];
       }
       bdry_color[c] = 0.5*bdry_color[c]/n_edges + 0.5*bg_color[c];
-    }*/
+    }
     
     // viewpoint
     var ref_edge = 0;
