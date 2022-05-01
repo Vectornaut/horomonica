@@ -8,15 +8,37 @@
   <!--<link rel="stylesheet" type="text/css" href="" />-->
   <style>
     body {
-      color: #fefefe;
+      color: #c0c0c0;
       background-color: #202020;
     }
     
+    /*
+     formatting tips from Stephanie Eckles
+     https://moderncss.dev/custom-css-styles-for-form-inputs-and-textareas/
+    */
     input {
-      color: inherit;
-      background-color: #202020;
-      border: 1px solid #fefefe;
+      background-color: #020202;
+      border: 1px solid hsl(0, 0%, 30%);
       border-radius: 4px;
+      color: #c0c0c0;
+      font-size: inherit;
+    }
+    
+    input[type=button]:hover {
+      background-color: #303030;
+    }
+    
+    input[type=button]:active, input[type=button].pressed {
+      color: white;
+      background-color: #404040;
+      border-color: hsl(0, 0%, 40%);
+    }
+    
+    input[type=button]:disabled {
+      filter: brightness(0.5);
+      /* colors adjusted to compensave for filter */
+      background-color: #404040;
+      border-color: hsl(0, 0%, 60%);
     }
   </style>
   
@@ -225,7 +247,6 @@
         /* mark the reference edge */
         vec3 color = bg_color;
         if (step == 0 && edge == ref_edge) {
-          /*color = vec3(0.5, 0.2, 0.5);*/
           color = mix(color, edge_color[ref_edge % n_edges], 0.4*exp(-3.*m * (exp(-3.*q_a) + exp(-3.*q_b)) / (q_a*exp(-3.*q_a) + q_b*exp(-3.*q_b))));
         }
         
@@ -247,12 +268,12 @@
 <body>
   <div>
     <input type="button" onclick="slither_ref_edge_left()" value="slither"/>
-    <input type="button" onclick="flip(0)" style="color: #ff0080" value="flip 0"/>
-    <input type="button" onclick="flip(1)" style="color: #ff8000" value="flip 1"/>
-    <input type="button" onclick="flip(2)" style="color: #ffff00" value="flip 2"/>
-    <input type="button" onclick="flip(3)" style="color: #00ff00" value="flip 3"/>
-    <input type="button" onclick="flip(4)" style="color: #0080ff" value="flip 4"/>
-    <input type="button" onclick="flip(5)" style="color: #8000ff" value="flip 5"/>
+    <input type="button" onclick="flip(0)" style="color: #ff0080" id="flip0" value="flip 0"/>
+    <input type="button" onclick="flip(1)" style="color: #ff8000" id="flip1" value="flip 1"/>
+    <input type="button" onclick="flip(2)" style="color: #ffff00" id="flip2" value="flip 2"/>
+    <input type="button" onclick="flip(3)" style="color: #00ff00" id="flip3" value="flip 3"/>
+    <input type="button" onclick="flip(4)" style="color: #0080ff" id="flip4" value="flip 4"/>
+    <input type="button" onclick="flip(5)" style="color: #8000ff" id="flip5" value="flip 5"/>
   </div>
   <canvas id="test" width="650" height="650"></canvas>
   
@@ -441,6 +462,18 @@
       next_edge[2*nigh_inv[2]+1] = edge_inv;
       next_edge[2*nigh_inv[3]] = edge;
       next_edge[2*nigh_inv[3]+1] = nigh[0];
+      
+      // disable flip buttons for self-folded edges
+      for (let k = 0; k < n_edges; k++) {
+        k_inv = inv(k);
+        flip_button = document.querySelector('#flip' + k.toString());
+        flip_button.disabled = (
+          (k - left(k)) % n_edges == 0 || (k - right(k)) % n_edges == 0
+        );
+        if (flip_button.disabled) {
+          console.log('button', '#flip' + k.toString(), 'value', flip_button.value, 'disabled');
+        }
+      }
     }
     
     // --- define rendering routine ---
