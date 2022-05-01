@@ -357,31 +357,15 @@
     // viewpoint
     var ref_edge = 0;
     {
-      let x = half_shear[ref_edge];
-      /*var unframe = mat4.fromValues(
+      let x = Math.sqrt(half_shear[ref_edge]);
+      var unframe = mat4.fromValues(
         1/x,   0, 0, 0,
         0,   1/x, 0, 0,
         0,     0, x, 0,
         0,     0, 0, x
-      );*/
-      /*var unframe = mat4.fromValues(
-        1/x, 0, 0, 0,
-        0, 1/x, 0, 0,
-        0, 0, x, 0,
-        0, 0, 0, x
       );
-      mat4.multiply(
-        unframe,
-        unframe,
-        mat4.fromValues(
-          1., 0.,  -1,  0.,
-          0., 1.,  0.,  -1,
-          0., 0.,  1.,  0.,
-          0., 0.,  0.,  1.
-        )
-      );*/
-      var unframe = mat4.create();
-      mat4.identity(unframe);
+      /*var unframe = mat4.create();
+      mat4.identity(unframe);*/
     }
     
     function left(edge) {
