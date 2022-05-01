@@ -106,6 +106,11 @@
     uniform int ref_edge;
     uniform mat4 unframe;
     
+    // display parameters
+    const float view = 1.02;
+    uniform vec3 bg_color;
+    uniform vec3 bdry_color;
+    
     // --- pixel sampling ---
     
     const float A1 = 0.278393;
@@ -161,10 +166,6 @@
        0., -1., 0., 1.
     );
     
-    // display parameters
-    const float view = 1.02;
-    const vec3 bg_color = vec3(1./128.);
-    
     void main() {
       // the mobius transformation that maps the unit disk to the upper half-
       // plane, fixing 1 and -1
@@ -189,6 +190,7 @@
       vec2 z = r_px * (2.*gl_FragCoord.xy - resolution);
       float r_sq = dot(z, z);
       float proj_scaling = 2. / (1.-r_sq); // the conformal scale factor of the projection
+      float width = min(4., 60./proj_scaling);
       
       // triangle walk
       if (r_sq < 1.) {
@@ -216,7 +218,7 @@
         // color sampling
         vec4 fg_color = vec4(0.);
         float fg_alpha = 0.;
-        vec3 blur_color = vec3(0.);
+        vec4 blur_color = vec4(0.);
         float blur_samples = 0.;
         
         // later steps
@@ -247,10 +249,10 @@
           
           // area-sample the edge
           if (abs(t_base) < 16.*(proj_scaling * r_px)) {
-            vec4 mix = line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(0.), 4., t_base, proj_scaling, r_px);
+            vec4 mix = line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(0.), width, t_base, proj_scaling, r_px);
             fg_color += mix;
             fg_alpha = max(mix.a, fg_alpha);
-            blur_color += line_mix(edge_color[edge % n_edges], bg_color, 4., 0., proj_scaling, r_px);
+            blur_color += line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(edge_color[edge % n_edges], 0.), width, 0., proj_scaling, r_px);
             blur_samples += 1.;
           }
           
@@ -288,8 +290,11 @@
         // find the conformal scale factor of the Poincare projection
         float proj_scaling = 2. / (1.-r_sq);
         
-        /* mark the reference edge */
+        // fog the boundary
+        /*vec3 color = mix(bg_color, bdry_color, exp(45.*(r_sq-1.)));*/
         vec3 color = bg_color;
+        
+        /* mark the reference edge */
         if (step == 0 && edge == ref_edge) {
           color = mix(color, edge_color[ref_edge % n_edges], 0.4*exp(-3.*m * (exp(-3.*q_a) + exp(-3.*q_b)) / (q_a*exp(-3.*q_a) + q_b*exp(-3.*q_b))));
         }
@@ -297,28 +302,29 @@
         // area-sample the left and right edges
         if (abs(t_left) < 16.*(proj_scaling * r_px)) {
           int left_edge = next_edge[2*edge];
-          vec4 mix = line_mix(vec4(edge_color[left_edge % n_edges], 1.), vec4(0.), 4., t_left, proj_scaling, r_px);
+          vec4 mix = line_mix(vec4(edge_color[left_edge % n_edges], 1.), vec4(0.), width, t_left, proj_scaling, r_px);
           fg_color += mix;
           fg_alpha = max(mix.a, fg_alpha);
         }
         if (abs(t_right) < 16.*(proj_scaling * r_px)) {
           int right_edge = next_edge[2*edge+1];
-          vec4 mix = line_mix(vec4(edge_color[right_edge % n_edges], 1.), vec4(0.), 4., t_right, proj_scaling, r_px);
+          vec4 mix = line_mix(vec4(edge_color[right_edge % n_edges], 1.), vec4(0.), width, t_right, proj_scaling, r_px);
           fg_color += mix;
           fg_alpha = max(mix.a, fg_alpha);
         }
         if (step >= step_max) {
-          color = blur_color / blur_samples;
+          blur_color /= blur_samples;
+          color = mix(color, blur_color.rgb, blur_color.a);
         } else {
           if (fg_alpha > 0.) fg_color /= fg_color.a;
           color = mix(color, fg_color.rgb, fg_alpha);
         }
         
         // area-sample the disk boundary
-        color = line_mix(bg_color, color, 2., r_sq - 1., 2., r_px);
+        color = line_mix(bdry_color, color, 2., r_sq - 1., 2., r_px);
         fragColor = vec4(color, 1.);
       } else {
-        fragColor = line_mix(vec4(bg_color, 1.), vec4(0.), 2., r_sq - 1., 2., r_px);
+        fragColor = line_mix(vec4(bdry_color, 1.), vec4(0.), 2., r_sq - 1., 2., r_px);
       }
     }
   </script>
@@ -398,6 +404,17 @@
       0.5, 0.0, 1.0
     ]
     var n_edges = half_shear.length
+    
+    // display parameters
+    var bg_color = [1/128, 1/128, 1/128];
+    var bdry_color = bg_color;
+    /*var bdry_color = [0, 0, 0];
+    for (let c = 0; c < 3; c++) {
+      for (let k = 0; k < n_edges; k++) {
+        bdry_color[c] += edge_color[3*k+c];
+      }
+      bdry_color[c] = 0.5*bdry_color[c]/n_edges + 0.5*bg_color[c];
+    }*/
     
     // viewpoint
     var ref_edge = 0;
@@ -578,7 +595,9 @@
         edge_color: edge_color,
         n_edges: 6,
         ref_edge: ref_edge,
-        unframe: unframe
+        unframe: unframe,
+        bg_color: bg_color,
+        bdry_color: bdry_color
       });
       twgl.drawBufferInfo(ctx, bufferInfo);
       
