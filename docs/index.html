@@ -377,7 +377,10 @@
     var bufferInfo = twgl.createBufferInfoFromArrays(ctx, arrays);
     
     // triangulation and shear coordinates
-    var half_shear = [7/6, 9/7, 6/9, 6/9, 7/6, 9/7]
+    var lambda = [1, 32/27, 3/2, 16/9, 2, 4/3];
+    var n_edges = lambda.length
+    var half_lambda = lambda.map(Math.sqrt);
+    var half_shear = Array(n_edges);
     var next_edge = [
       3, 5+6,
       4, 3+6,
@@ -400,7 +403,8 @@
       0.0, 0.5, 1.0,
       0.5, 0.0, 1.0
     ]
-    var n_edges = half_shear.length
+    get_shears();
+    console.log(half_shear);
     
     // display parameters
     var bg_color = [1/128, 1/128, 1/128];
@@ -437,6 +441,16 @@
     
     function inv(edge) {
       return (edge + n_edges) % (2*n_edges);
+    }
+    
+    function get_shears() {
+      for (let k = 0; k < n_edges; k++) {
+        k_inv = inv(k);
+        half_shear[k] = (
+          half_lambda[left(k) % n_edges] * half_lambda[left(k_inv) % n_edges] /
+          (half_lambda[right(k) % n_edges] * half_lambda[right(k_inv) % n_edges])
+        );
+      }
     }
     
     function reverse_ref_edge() {
