@@ -13,6 +13,7 @@
     }
     
     input {
+      color: inherit;
       background-color: #202020;
       border: 1px solid #fefefe;
       border-radius: 4px;
@@ -106,16 +107,16 @@
     
     // left and right turns
     const mat4 left = mat4(
-       1.,  0., 0., 0.,
-       0.,  1., 0., 0.,
-      -1.,  0., 1., 0.,
-       0., -1., 0., 1.
-    );
-    const mat4 right = mat4(
       1., 0., -1.,  0.,
       0., 1.,  0., -1.,
       0., 0.,  1.,  0.,
       0., 0.,  0.,  1.
+    );
+    const mat4 right = mat4(
+       1.,  0., 0., 0.,
+       0.,  1., 0., 0.,
+      -1.,  0., 1., 0.,
+       0., -1., 0., 1.
     );
     
     // display parameters
@@ -125,7 +126,7 @@
     void main() {
       // the mobius transformation that maps the unit disk to the upper half-
       // plane, fixing 1 and -1
-      const mat4 unroll = mat4(
+      const mat4 unroll = 1./sqrt(2.) * mat4(
          0., 1.,  1., 0.,
         -1., 0.,  0., 1.,
          1., 0.,  0., 1.,
@@ -162,7 +163,8 @@
         float q_b; // |b|^2
         
         // later steps
-        for (int step = 0; step < 18; step++) {
+        int step; /* for reference edge marking */
+        for (/*int*/ step = 0; step < 18; step++) {
           // shear the opposite vertex to 1
           if (step > 0 || edge != ref_edge) {
             float x = half_shear[edge % n_edges];
@@ -175,12 +177,12 @@
           q_a = dot(v.xy, v.xy); // |a|^2
           q_b = dot(v.zw, v.zw); // |b|^2
           
-          if (m > q_b) {
+          if (m > q_a) {
             v = left * v;
             edge = next_edge[2*edge];
             /*color.r *= 0.8;
             color.b = 1. - 0.8*(1. - color.b);*/
-          } else if (m > q_a) {
+          } else if (m > q_b) {
             v = right * v;
             edge = next_edge[2*edge+1];
             /*color.r = 1. - 0.8*(1. - color.r);
@@ -202,8 +204,8 @@
         //
         float diff = sqrt(dot(v.xy - v.zw, v.xy - v.zw)); // |a - b|
         float t_base = m / sqrt(q_a * q_b);
-        float t_left = (m - q_b) / (sqrt(q_b) * diff);
-        float t_right = (m - q_a) / (sqrt(q_a) * diff);
+        float t_left = (m - q_a) / (sqrt(q_a) * diff);
+        float t_right = (m - q_b) / (sqrt(q_b) * diff);
         
         // find the nearest edge
         float t_near = t_base;
@@ -220,8 +222,15 @@
         // find the conformal scale factor of the Poincare projection
         float proj_scaling = 2. / (1.-r_sq);
         
+        /* mark the reference edge */
+        vec3 color = bg_color;
+        if (step == 0 && edge == ref_edge) {
+          /*color = vec3(0.5, 0.2, 0.5);*/
+          color = mix(color, edge_color[ref_edge % n_edges], 0.4*exp(-3.*m * (exp(-3.*q_a) + exp(-3.*q_b)) / (q_a*exp(-3.*q_a) + q_b*exp(-3.*q_b))));
+        }
+        
         // area-sample the nearest edge
-        vec3 color = line_mix(edge_color[near_edge % n_edges], bg_color, 4., t_near, proj_scaling, r_px);
+        color = line_mix(edge_color[near_edge % n_edges], color, 4., t_near, proj_scaling, r_px);
         
         // area-sample the disk boundary
         color = line_mix(bg_color, color, 2., r_sq - 1., 2., r_px);
@@ -237,6 +246,8 @@
 
 <body>
   <div>
+    <input type="button" onclick="slither_ref_edge_left()" value="slither"/>
+    <input type="button" onclick="flip(0)" style="color: #ff0080" value="flip 0"/>
     <input type="button" onclick="flip(1)" style="color: #ff8000" value="flip 1"/>
     <input type="button" onclick="flip(2)" style="color: #ffff00" value="flip 2"/>
     <input type="button" onclick="flip(3)" style="color: #00ff00" value="flip 3"/>
@@ -300,13 +311,31 @@
     // viewpoint
     var ref_edge = 0;
     {
-      let x = Math.sqrt(half_shear[ref_edge]);
-      var unframe = mat4.fromValues(
+      let x = half_shear[ref_edge];
+      /*var unframe = mat4.fromValues(
         1/x,   0, 0, 0,
         0,   1/x, 0, 0,
         0,     0, x, 0,
         0,     0, 0, x
+      );*/
+      /*var unframe = mat4.fromValues(
+        1/x, 0, 0, 0,
+        0, 1/x, 0, 0,
+        0, 0, x, 0,
+        0, 0, 0, x
       );
+      mat4.multiply(
+        unframe,
+        unframe,
+        mat4.fromValues(
+          1., 0.,  -1,  0.,
+          0., 1.,  0.,  -1,
+          0., 0.,  1.,  0.,
+          0., 0.,  0.,  1.
+        )
+      );*/
+      var unframe = mat4.create();
+      mat4.identity(unframe);
     }
     
     function left(edge) {
@@ -324,13 +353,28 @@
     function reverse_ref_edge() {
       ref_edge = inv(ref_edge);
       let x = half_shear[ref_edge % n_edges];
-      mat4.mul(
+      mat4.multiply(
         unframe,
         mat4.fromValues(
             0,   0, -x,  0,
             0,   0,  0, -x,
           1/x,   0,  0,  0,
             0, 1/x,  0,  0
+        ),
+        unframe
+      );
+    }
+    
+    function slither_ref_edge_left() {
+      ref_edge = left(ref_edge);
+      let x = half_shear[ref_edge % n_edges];
+      mat4.multiply(
+        unframe,
+        mat4.fromValues(
+          1/x,   0, -x,  0,
+            0, 1/x,  0, -x,
+            0,   0,  x,  0,
+            0,   0,  0,  x
         ),
         unframe
       );
@@ -357,10 +401,16 @@
       let half_shear_edge_old = half_shear[edge % n_edges];
       let half_shear_edge_new = 1 / half_shear_edge_old;
       let shear_edge_old = half_shear_edge_old * half_shear_edge_old;
-      let half_shear_even_mult = Math.sqrt(1 + shear_edge_old);
-      let half_shear_odd_mult = Math.sqrt(1 / (1 + 1 / shear_edge_old));
+      let half_shear_even_mult = Math.sqrt(1 / (1 + 1 / shear_edge_old));
+      let half_shear_odd_mult = Math.sqrt(1 + shear_edge_old);
       
-      // avoid flipping an edge adjacent to the reference edge by reversing the
+      // avoid flipping the reference edge by slithering the reference edge to
+      // the left if necessary
+      if (edge == ref_edge || edge_inv == ref_edge) {
+        slither_ref_edge_left();
+      }
+      
+      // avoid flipping an edge that the reference edge faces by reversing the
       // reference edge if necessary
       for (let k = 0; k < 4; k++) {
         if (nigh_inv[k] == ref_edge) {
