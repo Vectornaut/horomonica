@@ -348,10 +348,47 @@
       <input type="button" onclick="flip(5)" style="color: #8000ff" id="flip5" value="flip 5"/>
     </div>
   </div>
+  <div class="control-bar">
+    <div class="control">
+      <input type="button" onmousedown="play(0)" onmouseup="stop(0)" style="color: #ff0080" value="play 0"/>
+      <input type="button" onmousedown="play(1)" onmouseup="stop(1)" style="color: #ff8000" value="play 1"/>
+      <input type="button" onmousedown="play(2)" onmouseup="stop(2)" style="color: #ffff00" value="play 2"/>
+      <input type="button" onmousedown="play(3)" onmouseup="stop(3)" style="color: #00ff00" value="play 3"/>
+      <input type="button" onmousedown="play(4)" onmouseup="stop(4)" style="color: #0080ff" value="play 4"/>
+      <input type="button" onmousedown="play(5)" onmouseup="stop(5)" style="color: #8000ff" value="play 5"/>
+    </div>
+  </div>
   <canvas id="test" width="650" height="650"></canvas>
   
   <script>
     var mat4 = glMatrix.mat4;
+    
+    // --- set up audio ---
+    
+    var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    var mainGain = audioContext.createGain();
+    mainGain.connect(audioContext.destination);
+    mainGain.value = 0.5; /* range 0 to 1 */
+    
+    function play(edge) {
+      if (!edgeOsc[edge % n_edges]) {
+        console.log(lambda[edge % n_edges]);
+        osc = audioContext.createOscillator();
+        osc.connect(mainGain);
+        edgeOsc[edge % n_edges] = osc;
+        osc.frequency.value = 220 / lambda[edge % n_edges];
+        osc.start();
+      }
+    }
+    
+    function stop(edge) {
+      osc = edgeOsc[edge % n_edges];
+      if (osc) {
+        osc.stop();
+        edgeOsc[edge % n_edges] = null;
+        delete osc;
+      }
+    }
     
     // --- get canvases and hook up interactions ---
     
@@ -377,7 +414,7 @@
     var bufferInfo = twgl.createBufferInfoFromArrays(ctx, arrays);
     
     // triangulation and shear coordinates
-    var lambda = [1, 32/27, 3/2, 16/9, 2, 4/3]/*[1, 1, 1, 1, 1, 1]*/;
+    var lambda = [1, 27/32, 2/3, 9/16, 1/2, 3/4]/*[1, 1, 1, 1, 1, 1]*/;
     var n_edges = lambda.length
     var halfLambda = lambda.map(Math.sqrt);
     var halfShear = Array(n_edges);
@@ -403,6 +440,8 @@
       0.0, 0.5, 1.0,
       0.5, 0.0, 1.0
     ]
+    var edgeOsc = Array(n_edges);
+    edgeOsc.fill(null);
     updateAllShears();
     
     // display parameters
@@ -511,10 +550,8 @@
       // necessary
       refEdge_inv = inv(refEdge);
       if ((edge - refEdge) % n_edges == 0) {
-        console.log(left(edge), right(edge), (left(edge) - right(edge)) % n_edges);
         if ((left(refEdge) - right(refEdge)) % n_edges == 0) {
           // the reference edge faces into a self-folded triangle
-          console.log('reverse / go left');
           reverseRefEdge();
           slitherRefEdgeLeft();
         } else if (
@@ -522,12 +559,10 @@
           (left(refEdge) - right(refEdge_inv)) % n_edges == 0
         ) {
           // slithering the reference edge left would make it face itself again
-          console.log('go right');
           slitherRefEdgeRight();
         } else {
           // this includes the case where the reference edge faces out of a
           // self-folded triangle
-          console.log('go left');
           slitherRefEdgeLeft();
         }
       }
