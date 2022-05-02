@@ -509,26 +509,31 @@
       
       // avoid flipping the reference edge by moving the reference edge if
       // necessary
+      refEdge_inv = inv(refEdge);
       if ((edge - refEdge) % n_edges == 0) {
-        if (
-          (left(edge) - right(edge)) % n_edges == 0 ||
-          (left(edge_inv) - right(edge_inv)) % n_edges == 0
-        ) {
+        console.log(left(edge), right(edge), (left(edge) - right(edge)) % n_edges);
+        if ((left(refEdge) - right(refEdge)) % n_edges == 0) {
+          // the reference edge faces into a self-folded triangle
+          console.log('reverse / go left');
           reverseRefEdge();
           slitherRefEdgeLeft();
         } else if (
-          (left(edge) - left(edge_inv)) % n_edges == 0 ||
-          (left(edge) - right(edge_inv)) % n_edges == 0
+          (left(refEdge) - left(refEdge_inv)) % n_edges == 0 ||
+          (left(refEdge) - right(refEdge_inv)) % n_edges == 0
         ) {
+          // slithering the reference edge left would make it face itself again
+          console.log('go right');
           slitherRefEdgeRight();
         } else {
+          // this includes the case where the reference edge faces out of a
+          // self-folded triangle
+          console.log('go left');
           slitherRefEdgeLeft();
         }
       }
       
       // avoid flipping an edge that the reference edge faces by moving the
       // reference edge if necessary
-      refEdge_inv = inv(refEdge);
       if ((left(refEdge) - edge) % n_edges == 0) {
         if (
           (left(refEdge_inv) - edge) % n_edges == 0 ||
