@@ -363,33 +363,6 @@
   <script>
     var mat4 = glMatrix.mat4;
     
-    // --- set up audio ---
-    
-    var audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    var mainGain = audioContext.createGain();
-    mainGain.connect(audioContext.destination);
-    mainGain.value = 0.5; /* range 0 to 1 */
-    
-    function play(edge) {
-      if (!edgeOsc[edge % n_edges]) {
-        console.log(lambda[edge % n_edges]);
-        osc = audioContext.createOscillator();
-        osc.connect(mainGain);
-        edgeOsc[edge % n_edges] = osc;
-        osc.frequency.value = 220 / lambda[edge % n_edges];
-        osc.start();
-      }
-    }
-    
-    function stop(edge) {
-      osc = edgeOsc[edge % n_edges];
-      if (osc) {
-        osc.stop();
-        edgeOsc[edge % n_edges] = null;
-        delete osc;
-      }
-    }
-    
     // --- get canvases and hook up interactions ---
     
     var testCanvas = document.querySelector('#test');
@@ -440,8 +413,6 @@
       0.0, 0.5, 1.0,
       0.5, 0.0, 1.0
     ]
-    var edgeOsc = Array(n_edges);
-    edgeOsc.fill(null);
     updateAllShears();
     
     // display parameters
@@ -661,6 +632,61 @@
     
     // kick off animation
     requestAnimationFrame(render);
+    
+    // --- set up audio ---
+    
+    // main context
+    var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    var mainAmp = audioContext.createGain();
+    mainAmp.connect(audioContext.destination);
+    mainAmp.gain.value = 0.1; /* range 0 to 1 */
+    
+    // edge tones
+    var edgeOsc = Array(n_edges);
+    edgeOsc.fill(null);
+    var edgeAmp = Array(n_edges);
+    for (let k = 0; k < n_edges; k++) {
+      edgeAmp[k] = audioContext.createGain();
+      edgeAmp[k].connect(mainAmp);
+    }
+    
+    const ramp = 0.02;
+    
+    function play(edge) {
+      edge_u = edge % n_edges;
+      if (!edgeOsc[edge_u]) {
+        // set attack
+        now = audioContext.currentTime;
+        amp = edgeAmp[edge_u];
+        amp.gain.setValueAtTime(0, now);
+        amp.gain.linearRampToValueAtTime(1, now + ramp);
+        
+        // create and start oscillator
+        console.log(lambda[edge_u]);
+        osc = audioContext.createOscillator();
+        osc.frequency.value = 220 / lambda[edge_u];
+        osc.connect(amp);
+        osc.start();
+        
+        // save oscillator reference
+        edgeOsc[edge_u] = osc;
+      }
+    }
+    
+    function stop(edge) {
+      edge_u = edge % n_edges;
+      osc = edgeOsc[edge_u];
+      if (osc) {
+        now = audioContext.currentTime;
+        end = now + ramp;
+        let amp = edgeAmp[edge_u];
+        amp.gain.cancelScheduledValues(now);
+        amp.gain.setValueAtTime(amp.gain.value, now);
+        amp.gain.linearRampToValueAtTime(0, end);
+        osc.stop(end);
+        edgeOsc[edge_u] = null;
+      }
+    }
   </script>
 </body>
 </html>
