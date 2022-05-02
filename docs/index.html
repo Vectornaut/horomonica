@@ -333,9 +333,9 @@
   <div class="control-bar">
     <div class="control">
       <label>change reference edge:</label>
-      <input type="button" onclick="slither_ref_edge_left()" value="left"/>
-      <input type="button" onclick="slither_ref_edge_right()" value="right"/>
-      <input type="button" onclick="reverse_ref_edge()" value="reverse"/>
+      <input type="button" onclick="slitherRefEdgeLeft()" value="left"/>
+      <input type="button" onclick="slitherRefEdgeRight()" value="right"/>
+      <input type="button" onclick="reverseRefEdge()" value="reverse"/>
     </div>
   </div>
   <div class="control-bar">
@@ -379,9 +379,9 @@
     // triangulation and shear coordinates
     var lambda = [1, 32/27, 3/2, 16/9, 2, 4/3]/*[1, 1, 1, 1, 1, 1]*/;
     var n_edges = lambda.length
-    var half_lambda = lambda.map(Math.sqrt);
-    var half_shear = Array(n_edges);
-    var next_edge = [
+    var halfLambda = lambda.map(Math.sqrt);
+    var halfShear = Array(n_edges);
+    var nextEdge = [
       3, 5+6,
       4, 3+6,
       5, 4+6,
@@ -395,7 +395,7 @@
       3+6, 1+6,
       4+6, 2+6
     ]
-    var edge_color = [
+    var edgeColor = [
       1.0, 0.0, 0.5,
       1.0, 0.5, 0.0,
       1.0, 1.0, 0.0,
@@ -403,23 +403,23 @@
       0.0, 0.5, 1.0,
       0.5, 0.0, 1.0
     ]
-    update_all_shears();
+    updateAllShears();
     
     // display parameters
-    var bg_color = [1/128, 1/128, 1/128];
-    /*var bdry_color = bg_color;*/
-    var bdry_color = [0, 0, 0];
+    var bgColor = [1/128, 1/128, 1/128];
+    /*var bdryColor = bgColor;*/
+    var bdryColor = [0, 0, 0];
     for (let c = 0; c < 3; c++) {
       for (let k = 0; k < n_edges; k++) {
-        bdry_color[c] += edge_color[3*k+c];
+        bdryColor[c] += edgeColor[3*k+c];
       }
-      bdry_color[c] = (bdry_color[c]/n_edges + bg_color[c]) / 2;
+      bdryColor[c] = (bdryColor[c]/n_edges + bgColor[c]) / 2;
     }
     
     // viewpoint
-    var ref_edge = 0;
+    var refEdge = 0;
     {
-      let x = Math.sqrt(half_shear[ref_edge]);
+      let x = Math.sqrt(halfShear[refEdge]);
       var unframe = mat4.fromValues(
         1/x,   0, 0, 0,
         0,   1/x, 0, 0,
@@ -431,34 +431,34 @@
     }
     
     function left(edge) {
-      return next_edge[2*edge];
+      return nextEdge[2*edge];
     }
     
     function right(edge) {
-      return next_edge[2*edge+1];
+      return nextEdge[2*edge+1];
     }
     
     function inv(edge) {
       return (edge + n_edges) % (2*n_edges);
     }
     
-    function update_shear(edge) {
+    function updateShear(edge) {
       edge_inv = inv(edge);
-      half_shear[edge % n_edges] = (
-        half_lambda[left(edge) % n_edges] * half_lambda[left(edge_inv) % n_edges] /
-        (half_lambda[right(edge) % n_edges] * half_lambda[right(edge_inv) % n_edges])
+      halfShear[edge % n_edges] = (
+        halfLambda[left(edge) % n_edges] * halfLambda[left(edge_inv) % n_edges] /
+        (halfLambda[right(edge) % n_edges] * halfLambda[right(edge_inv) % n_edges])
       );
     }
     
-    function update_all_shears() {
+    function updateAllShears() {
       for (let k = 0; k < n_edges; k++) {
-        update_shear(k);
+        updateShear(k);
       }
     }
     
-    function reverse_ref_edge() {
-      ref_edge = inv(ref_edge);
-      let x = half_shear[ref_edge % n_edges];
+    function reverseRefEdge() {
+      refEdge = inv(refEdge);
+      let x = halfShear[refEdge % n_edges];
       mat4.multiply(
         unframe,
         mat4.fromValues(
@@ -471,9 +471,9 @@
       );
     }
     
-    function slither_ref_edge_left() {
-      ref_edge = left(ref_edge);
-      let x = half_shear[ref_edge % n_edges];
+    function slitherRefEdgeLeft() {
+      refEdge = left(refEdge);
+      let x = halfShear[refEdge % n_edges];
       mat4.multiply(
         unframe,
         mat4.fromValues(
@@ -486,9 +486,9 @@
       );
     }
     
-    function slither_ref_edge_right() {
-      ref_edge = right(ref_edge);
-      let x = half_shear[ref_edge % n_edges];
+    function slitherRefEdgeRight() {
+      refEdge = right(refEdge);
+      let x = halfShear[refEdge % n_edges];
       mat4.multiply(
         unframe,
         mat4.fromValues(
@@ -509,45 +509,44 @@
       
       // avoid flipping the reference edge by moving the reference edge if
       // necessary
-      ref_edge_inv = inv(ref_edge);
-      if ((edge - ref_edge) % n_edges == 0) {
+      if ((edge - refEdge) % n_edges == 0) {
         if (
           (left(edge) - right(edge)) % n_edges == 0 ||
           (left(edge_inv) - right(edge_inv)) % n_edges == 0
         ) {
-          reverse_ref_edge();
-          slither_ref_edge_left();
+          reverseRefEdge();
+          slitherRefEdgeLeft();
         } else if (
           (left(edge) - left(edge_inv)) % n_edges == 0 ||
           (left(edge) - right(edge_inv)) % n_edges == 0
         ) {
-          slither_ref_edge_right();
+          slitherRefEdgeRight();
         } else {
-          slither_ref_edge_left();
+          slitherRefEdgeLeft();
         }
       }
       
       // avoid flipping an edge that the reference edge faces by moving the
       // reference edge if necessary
-      ref_edge_inv = inv(ref_edge);
-      if ((left(ref_edge) - edge) % n_edges == 0) {
+      refEdge_inv = inv(refEdge);
+      if ((left(refEdge) - edge) % n_edges == 0) {
         if (
-          (left(ref_edge_inv) - edge) % n_edges == 0 ||
-          (right(ref_edge_inv) - edge) % n_edges == 0
+          (left(refEdge_inv) - edge) % n_edges == 0 ||
+          (right(refEdge_inv) - edge) % n_edges == 0
         ) {
-          slither_ref_edge_right();
+          slitherRefEdgeRight();
         } else {
-          reverse_ref_edge();
+          reverseRefEdge();
         }
       }
-      if ((right(ref_edge) - edge) % n_edges == 0) {
+      if ((right(refEdge) - edge) % n_edges == 0) {
         if (
-          (left(ref_edge_inv) - edge) % n_edges == 0 ||
-          (right(ref_edge_inv) - edge) % n_edges == 0
+          (left(refEdge_inv) - edge) % n_edges == 0 ||
+          (right(refEdge_inv) - edge) % n_edges == 0
         ) {
-          slither_ref_edge_left();
+          slitherRefEdgeLeft();
         } else {
-          reverse_ref_edge();
+          reverseRefEdge();
         }
       }
       
@@ -558,35 +557,35 @@
       ) / lambda[edge % n_edges];
       
       // update half lambda length
-      half_lambda[edge % n_edges] = Math.sqrt(lambda[edge % n_edges]);
+      halfLambda[edge % n_edges] = Math.sqrt(lambda[edge % n_edges]);
       
       // update paths out of quadrilateral
-      next_edge[2*edge+1] = nigh[1];
-      next_edge[2*edge] = nigh[2];
-      next_edge[2*edge_inv+1] = nigh[3];
-      next_edge[2*edge_inv] = nigh[0];
+      nextEdge[2*edge+1] = nigh[1];
+      nextEdge[2*edge] = nigh[2];
+      nextEdge[2*edge_inv+1] = nigh[3];
+      nextEdge[2*edge_inv] = nigh[0];
       
       // update paths into quadrilateral
-      next_edge[2*nigh_inv[0]] = nigh[3];
-      next_edge[2*nigh_inv[0]+1] = edge;
-      next_edge[2*nigh_inv[1]] = edge_inv;
-      next_edge[2*nigh_inv[1]+1] = nigh[2];
-      next_edge[2*nigh_inv[2]] = nigh[1];
-      next_edge[2*nigh_inv[2]+1] = edge_inv;
-      next_edge[2*nigh_inv[3]] = edge;
-      next_edge[2*nigh_inv[3]+1] = nigh[0];
+      nextEdge[2*nigh_inv[0]] = nigh[3];
+      nextEdge[2*nigh_inv[0]+1] = edge;
+      nextEdge[2*nigh_inv[1]] = edge_inv;
+      nextEdge[2*nigh_inv[1]+1] = nigh[2];
+      nextEdge[2*nigh_inv[2]] = nigh[1];
+      nextEdge[2*nigh_inv[2]+1] = edge_inv;
+      nextEdge[2*nigh_inv[3]] = edge;
+      nextEdge[2*nigh_inv[3]+1] = nigh[0];
       
       // update shear coordinates
-      update_shear(edge);
+      updateShear(edge);
       for (let k = 0; k < 4; k++) {
-        update_shear(nigh[k]);
+        updateShear(nigh[k]);
       }
       
       // disable flip buttons for self-folded edges
       for (let k = 0; k < n_edges; k++) {
         k_inv = inv(k);
-        flip_button = document.querySelector('#flip' + k.toString());
-        flip_button.disabled = (
+        flipButton = document.querySelector('#flip' + k.toString());
+        flipButton.disabled = (
           (k - left(k)) % n_edges == 0 || (k - right(k)) % n_edges == 0
         );
       }
@@ -605,14 +604,14 @@
         resolution: [ctx.canvas.width, ctx.canvas.height],
         shortdim: Math.min(ctx.canvas.width, ctx.canvas.height),
         dpr: window.devicePixelRatio,
-        half_shear: half_shear,
-        next_edge: next_edge,
-        edge_color: edge_color,
+        half_shear: halfShear,
+        next_edge: nextEdge,
+        edge_color: edgeColor,
         n_edges: 6,
-        ref_edge: ref_edge,
+        ref_edge: refEdge,
         unframe: unframe,
-        bg_color: bg_color,
-        bdry_color: bdry_color
+        bg_color: bgColor,
+        bdry_color: bdryColor
       });
       twgl.drawBufferInfo(ctx, bufferInfo);
       
