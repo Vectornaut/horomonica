@@ -377,7 +377,7 @@
     var bufferInfo = twgl.createBufferInfoFromArrays(ctx, arrays);
     
     // triangulation and shear coordinates
-    var lambda = [1, 32/27, 3/2, 16/9, 2, 4/3];
+    var lambda = [1, 32/27, 3/2, 16/9, 2, 4/3]/*[1, 1, 1, 1, 1, 1]*/;
     var n_edges = lambda.length
     var half_lambda = lambda.map(Math.sqrt);
     var half_shear = Array(n_edges);
@@ -403,8 +403,7 @@
       0.0, 0.5, 1.0,
       0.5, 0.0, 1.0
     ]
-    get_shears();
-    console.log(half_shear);
+    update_all_shears();
     
     // display parameters
     var bg_color = [1/128, 1/128, 1/128];
@@ -443,13 +442,17 @@
       return (edge + n_edges) % (2*n_edges);
     }
     
-    function get_shears() {
+    function update_shear(edge) {
+      edge_inv = inv(edge);
+      half_shear[edge % n_edges] = (
+        half_lambda[left(edge) % n_edges] * half_lambda[left(edge_inv) % n_edges] /
+        (half_lambda[right(edge) % n_edges] * half_lambda[right(edge_inv) % n_edges])
+      );
+    }
+    
+    function update_all_shears() {
       for (let k = 0; k < n_edges; k++) {
-        k_inv = inv(k);
-        half_shear[k] = (
-          half_lambda[left(k) % n_edges] * half_lambda[left(k_inv) % n_edges] /
-          (half_lambda[right(k) % n_edges] * half_lambda[right(k_inv) % n_edges])
-        );
+        update_shear(k);
       }
     }
     
@@ -504,13 +507,6 @@
       let nigh = [right(edge), left(edge), right(edge_inv), left(edge_inv)];
       let nigh_inv = nigh.map(inv);
       
-      // find new shear coordinates
-      let half_shear_edge_old = half_shear[edge % n_edges];
-      let half_shear_edge_new = 1 / half_shear_edge_old;
-      let shear_edge_old = half_shear_edge_old * half_shear_edge_old;
-      let half_shear_even_mult = Math.sqrt(1 / (1 + 1 / shear_edge_old));
-      let half_shear_odd_mult = Math.sqrt(1 + shear_edge_old);
-      
       // avoid flipping the reference edge by moving the reference edge if
       // necessary
       ref_edge_inv = inv(ref_edge);
@@ -555,12 +551,14 @@
         }
       }
       
-      // update shear coordinates
-      half_shear[edge % n_edges] = half_shear_edge_new;
-      half_shear[nigh[0] % n_edges] *= half_shear_even_mult;
-      half_shear[nigh[1] % n_edges] *= half_shear_odd_mult;
-      half_shear[nigh[2] % n_edges] *= half_shear_even_mult;
-      half_shear[nigh[3] % n_edges] *= half_shear_odd_mult;
+      // update lambda length
+      lambda[edge % n_edges] = (
+        lambda[nigh[0] % n_edges] * lambda[nigh[2] % n_edges] +
+        lambda[nigh[1] % n_edges] * lambda[nigh[3] % n_edges]
+      ) / lambda[edge % n_edges];
+      
+      // update half lambda length
+      half_lambda[edge % n_edges] = Math.sqrt(lambda[edge % n_edges]);
       
       // update paths out of quadrilateral
       next_edge[2*edge+1] = nigh[1];
@@ -577,6 +575,12 @@
       next_edge[2*nigh_inv[2]+1] = edge_inv;
       next_edge[2*nigh_inv[3]] = edge;
       next_edge[2*nigh_inv[3]+1] = nigh[0];
+      
+      // update shear coordinates
+      update_shear(edge);
+      for (let k = 0; k < 4; k++) {
+        update_shear(nigh[k]);
+      }
       
       // disable flip buttons for self-folded edges
       for (let k = 0; k < n_edges; k++) {
