@@ -107,7 +107,7 @@
     uniform mat4 unframe;
     
     // display parameters
-    const float view = 1.02;
+    uniform float view;
     uniform vec3 bg_color;
     uniform vec3 bdry_color;
     
@@ -190,7 +190,7 @@
       vec2 z = r_px * (2.*gl_FragCoord.xy - resolution);
       float r_sq = dot(z, z);
       float proj_scaling = 2. / (1.-r_sq); // the conformal scale factor of the projection
-      float width = /*4.*/min(4., 12./sqrt(0.5*proj_scaling));
+      float width = min(4., 12./sqrt(0.5*proj_scaling));
       
       // triangle walk
       if (r_sq < 1.) {
@@ -275,20 +275,9 @@
         t_left = (m - q_a) / (sqrt(q_a) * diff);
         t_right = (m - q_b) / (sqrt(q_b) * diff);
         
-        // find the nearest edge
-        float t_near = t_base;
-        int near_edge = edge;
-        if (-t_left < abs(t_near)) {
-          t_near = t_left;
-          near_edge = next_edge[2*edge];
-        }
-        if (-t_right < abs(t_near)) {
-          t_near = t_right;
-          near_edge = next_edge[2*edge+1];
-        }
-        
         // find the conformal scale factor of the Poincare projection
-        float proj_scaling = 2. / (1.-r_sq);
+        /*float proj_scaling = 2. / (1.-r_sq);
+        float width = min(4., 12./sqrt(0.5*proj_scaling));*/
         
         /* mark the reference edge */
         vec3 color = bg_color;
@@ -363,28 +352,7 @@
   <script>
     var mat4 = glMatrix.mat4;
     
-    // --- get canvases and hook up interactions ---
-    
-    var testCanvas = document.querySelector('#test');
-    
-    // --- initialize shaders ---
-    
-    const arrays = {
-      position: [
-        // northwest triangle
-        -1, -1, 0,
-        -1,  1, 0,
-         1,  1, 0,
-        // southeast triangle
-        -1, -1, 0,
-         1,  1, 0,
-         1, -1, 0
-      ]
-    };
-    
-    var ctx = testCanvas.getContext('webgl2');
-    var programInfo = twgl.createProgramInfo(ctx, ['pass-vert', 'test-frag']);
-    var bufferInfo = twgl.createBufferInfoFromArrays(ctx, arrays);
+    // --- triangulation data and functions ---
     
     // triangulation and shear coordinates
     var lambda = [1, 27/32, 2/3, 9/16, 1/2, 3/4]/*[1, 1, 1, 1, 1, 1]*/;
@@ -602,6 +570,205 @@
       }
     }
     
+    // --- triangulation interactions ---
+    
+    var vec4 = glMatrix.vec4;
+    
+    const view = 1.02;
+    
+    var clickVec = mat4.create();
+    
+    // the mobius transformation that maps the unit disk to the upper half-
+    // plane, fixing 1 and -1
+    const unroll = mat4.fromValues(
+       0, 1,  1, 0,
+      -1, 0,  0, 1,
+       1, 0,  0, 1,
+       0, 1, -1, 0
+    );
+    mat4.multiplyScalar(unroll, unroll, 1/Math.sqrt(2));
+    
+    function planeProj(out, event) {
+      let rect = event.target.getBoundingClientRect();
+      let shortdim = Math.min(rect.width, rect.height);
+      vec4.set(
+        out,
+        view * (2*(event.clientX - rect.left) - rect.width) / shortdim,
+        view * (2*(rect.bottom - event.clientY) - rect.height) / shortdim,
+        1,
+        0
+      );
+      vec4.transformMat4(out, out, unroll);
+      vec4.transformMat4(out, out, unframe);
+      
+      // return the inner radius of a pixel in the Euclidean metric of the screen
+      return view / shortdim;
+    }
+    
+    // the mobius transformation that gives the upper half-plane a half-turn
+    // around `i`
+    const halfTurn = mat4.fromValues(
+      0, 0, -1,  0,
+      0, 0,  0, -1,
+      1, 0,  0,  0,
+      0, 1,  0,  0
+    );
+    
+    // left and right turns
+    const leftMat = mat4.fromValues(
+      1, 0, -1,  0,
+      0, 1,  0, -1,
+      0, 0,  1,  0,
+      0, 0,  0,  1
+    );
+    const rightMat = mat4.fromValues(
+       1,  0, 0, 0,
+       0,  1, 0, 0,
+      -1,  0, 1, 0,
+       0, -1, 0, 1
+    );
+    
+    var walkVec = vec4.create();
+    
+    function address(planeVec, r_px) {
+      v = walkVec;
+      vec4.copy(v, planeVec);
+      
+      height = v[0]*v[3] - v[1]*v[2];
+      if (height > 0) {
+        // departure
+        let edge = refEdge;
+        if (v[0]*v[2] + v[1]*v[3] < 0.) {
+          vec4.transformMat4(v, v, halfTurn);
+          edge = (edge + 6) % (2*n_edges);
+        }
+        
+        // during the walk, we'll use these to see whether we're beyond the left
+        // and right sides of the triangle. when we arrive, we'll use them
+        // to find the signed distances to the sides of the triangle
+        let m; // Re(ab')
+        let q_a; // |a|^2
+        let q_b; // |b|^2
+        
+        // later steps
+        const stepMax = 40;
+        for (let step = 0; step < stepMax; step++) {
+          // shear the opposite vertex to 1
+          if (step > 0 || edge != refEdge) {
+            let x = halfShear[edge % n_edges];
+            v[0] /= x;
+            v[1] /= x;
+            v[2] *= x;
+            v[3] *= x;
+          }
+          
+          // set up to find the signed distances to the left and right sides.
+          // we look at `v` as a pair `(a, b)` of complex numbers
+          m = v[0]*v[2] + v[1]*v[3]; // Re(ab')
+          q_a = v[0]*v[0] + v[1]*v[1]; // |a|^2
+          q_b = v[2]*v[2] + v[3]*v[3]; // |b|^2
+          
+          // area-sample the edge
+          /*if (abs(t_base) < 16.*(proj_scaling * r_px)) {
+            vec4 mix = line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(0.), width, t_base, proj_scaling, r_px);
+            fg_color += mix;
+            fg_alpha = max(mix.a, fg_alpha);
+            blur_color += line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(edge_color[edge % n_edges], 0.), width, 0., proj_scaling, r_px);
+            blur_samples += 1.;
+          }*/
+          
+          if (m > q_a) {
+            vec4.transformMat4(v, v, leftMat);
+            edge = left(edge);
+          } else if (m > q_b) {
+            vec4.transformMat4(v, v, rightMat);
+            edge = right(edge);
+          } else {
+            break;
+          }
+        }
+        
+        // --- arrival ---
+        
+        // `t_side := tanh(d_side)`, where `d_side` is the distance from `v` to
+        //  a side of the triangle
+        //
+        // the base side of the triangle is the geodesic from 0 to infinity in
+        // the upper half-plane. the curve through `v` which is equidistant from
+        // the base side is a ray which leaves 0 at some angle `phi`. the
+        // distance from `v` to the base side is given by (Series, "Hyperbolic
+        // Geometry: MA 448", section 2.2.7)
+        //
+        //   tanh(d_base) = cos(phi)
+        //
+        // the distances to the left and right sides can be found similarly
+        let diff_re = v[0] - v[2]
+        let diff_im = v[1] - v[3];
+        let diff = Math.hypot(diff_re, diff_im, diff_re, diff_im); // |a - b|
+        let t_base = m / Math.sqrt(q_a * q_b);
+        let t_left = (m - q_a) / (Math.sqrt(q_a) * diff);
+        let t_right = (m - q_b) / (Math.sqrt(q_b) * diff);
+        
+        // find the nearest edge
+        let t_near = t_base;
+        let nearEdge = edge;
+        if (-t_left < Math.abs(t_near)) {
+          t_near = t_left;
+          nearEdge = left(edge);
+        }
+        if (-t_right < Math.abs(t_near)) {
+          t_near = t_right;
+          nearEdge = right(edge);
+        }
+        
+        // check whether we're within the nearest edge's active width
+        let projScaling = 2 / height; // the conformal scale factor of the projection
+        let width = Math.min(4, 12/Math.sqrt(0.5*projScaling));
+        if (Math.abs(t_near) < projScaling * (0.5 * width * r_px)) {
+          return nearEdge % n_edges;
+        } else {
+          return null;
+        }
+        /*return nearEdge % n_edges;*/
+      } else {
+        // we're outside the upper half-plane
+        console.log('outside');
+        return null;
+      }
+    }
+    
+    // binding
+    function bindMouse(element) {
+      element.addEventListener('mousedown', function(event) {
+        let r_px = planeProj(clickVec, event);
+        console.log('click on edge', address(clickVec, r_px));
+      });
+    }
+    
+    // --- get canvases and hook up interactions ---
+    
+    var testCanvas = document.querySelector('#test');
+    bindMouse(testCanvas);
+    
+    // --- initialize shaders ---
+    
+    const arrays = {
+      position: [
+        // northwest triangle
+        -1, -1, 0,
+        -1,  1, 0,
+         1,  1, 0,
+        // southeast triangle
+        -1, -1, 0,
+         1,  1, 0,
+         1, -1, 0
+      ]
+    };
+    
+    var ctx = testCanvas.getContext('webgl2');
+    var programInfo = twgl.createProgramInfo(ctx, ['pass-vert', 'test-frag']);
+    var bufferInfo = twgl.createBufferInfoFromArrays(ctx, arrays);
+    
     // --- define rendering routine ---
     
     function render(time) {
@@ -621,6 +788,7 @@
         n_edges: 6,
         ref_edge: refEdge,
         unframe: unframe,
+        view: view,
         bg_color: bgColor,
         bdry_color: bdryColor
       });
