@@ -223,6 +223,8 @@
         
         // later steps
         int step; /* for reference edge marking */
+        int left_edge;
+        int right_edge;
         const int step_max = 40;
         for (/*int*/ step = 0; step < step_max; step++) {
           // shear the opposite vertex to 1
@@ -256,12 +258,14 @@
             blur_samples += 1.;
           }
           
+          left_edge = next_edge[2*edge];
+          right_edge = next_edge[2*edge+1];
           if (m > q_a) {
             v = left * v;
-            edge = next_edge[2*edge];
+            edge = left_edge;
           } else if (m > q_b) {
             v = right * v;
-            edge = next_edge[2*edge+1];
+            edge = right_edge;
           } else {
             break;
           }
@@ -287,13 +291,11 @@
         
         // area-sample the left and right edges
         if (abs(t_left) < 16.*(proj_scaling * r_px)) {
-          int left_edge = next_edge[2*edge];
           vec4 mix = line_mix(vec4(edge_color[left_edge % n_edges], 1.), vec4(0.), width, t_left, proj_scaling, r_px);
           fg_color += mix;
           fg_alpha = max(mix.a, fg_alpha);
         }
         if (abs(t_right) < 16.*(proj_scaling * r_px)) {
-          int right_edge = next_edge[2*edge+1];
           vec4 mix = line_mix(vec4(edge_color[right_edge % n_edges], 1.), vec4(0.), width, t_right, proj_scaling, r_px);
           fg_color += mix;
           fg_alpha = max(mix.a, fg_alpha);
@@ -356,7 +358,42 @@
     // --- triangulation data and functions ---
     
     // triangulation and shear coordinates
-    var lambda = [1, 27/32, 2/3, 9/16, 1/2, 3/4]/*[1, 1, 1, 1, 1, 1]*/;
+    /*[1, 1, 1, 1, 1, 1]*/
+    /*[1, 27/32, 2/3, 9/16, 1/2, 3/4]*/
+    var lambda = [1, 4/5, 2/3, 3/5, 1/2, 3/4];
+    /*
+      2 1 0         1/4
+        1 3 4       1/4
+          3 5 0     1/4
+            5 2 4   1/4
+              2 1 0 3/4
+      0             1/8
+      2             1/8
+      flip 1
+      3 1 0         1/4
+      3 1 4         1/4
+      5 2 4         1/4
+      5 2 0         1/4
+      flip 1
+      2 0 1         1/1
+      // flip 2 3 (?)
+      flip 1
+      flip 3
+      flip 1
+      0 3           3/16
+      1             5/16
+      0 3           3/16
+      1             3/16
+      2             2/16
+      flip 3
+      0 2 3         3/8
+      flip 4
+      4             3/8
+      flip 4
+      5             1/8
+      2             1/8
+      5 2 4         1/1
+    */
     var n_edges = lambda.length
     var halfLambda = lambda.map(Math.sqrt);
     var halfShear = Array(n_edges);
@@ -653,7 +690,8 @@
         
         // later steps
         const stepMax = 40;
-        for (let step = 0; step < stepMax; step++) {
+        let step;
+        for (step = 0; step < stepMax; step++) {
           // shear the opposite vertex to 1
           if (step > 0 || edge != refEdge) {
             let x = halfShear[edge % n_edges];
@@ -669,12 +707,14 @@
           q_a = v[0]*v[0] + v[1]*v[1]; // |a|^2
           q_b = v[2]*v[2] + v[3]*v[3]; // |b|^2
           
+          leftEdge = left(edge);
+          rightEdge = right(edge);
           if (m > q_a) {
             vec4.transformMat4(v, v, leftMat);
-            edge = left(edge);
+            edge = leftEdge;
           } else if (m > q_b) {
             vec4.transformMat4(v, v, rightMat);
-            edge = right(edge);
+            edge = rightEdge;
           } else {
             break;
           }
@@ -717,14 +757,16 @@
         let projScaling = 2 / height; // the conformal scale factor of the projection
         let width = Math.min(/*4*/16, /*12*/48/Math.sqrt(0.5*projScaling));
         if (Math.abs(t_near) < projScaling * (0.5 * width * r_px)) {
-          return nearEdge % n_edges;
+          return [nearEdge % n_edges];
+        } else if (step < stepMax) {
+          return [edge % n_edges, leftEdge % n_edges, rightEdge % n_edges];
         } else {
-          return null;
+          return [];
         }
         /*return nearEdge % n_edges;*/
       } else {
         // we're outside the upper half-plane
-        return null;
+        return [];
       }
     }
     
@@ -732,10 +774,10 @@
     function bindMouse(element) {
       element.addEventListener('mousedown', (event) => {
         let r_px = planeProj(clickVec, event);
-        edge_u = address(clickVec, r_px);
-        if (edge_u !== null) {
-          console.log('clicked edge', edge_u);
-          playNote(edge_u);
+        touched = address(clickVec, r_px);
+        console.log('touched edges', touched);
+        for (let k = 0; k < touched.length; k++) {
+          playNote(touched[k]);
         }
       });
     }
