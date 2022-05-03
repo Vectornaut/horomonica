@@ -347,6 +347,7 @@
       <input type="button" onmousedown="playNote(5)" onmouseup="stopNote(5)" style="color: #8000ff" value="play 5"/>
     </div>
   </div>
+  <div>click edges (or buttons) to play notes!</div>
   <canvas id="test" width="650" height="650"></canvas>
   
   <script>
@@ -714,7 +715,7 @@
         
         // check whether we're within the nearest edge's active width
         let projScaling = 2 / height; // the conformal scale factor of the projection
-        let width = Math.min(4, 12/Math.sqrt(0.5*projScaling));
+        let width = Math.min(/*4*/16, /*12*/48/Math.sqrt(0.5*projScaling));
         if (Math.abs(t_near) < projScaling * (0.5 * width * r_px)) {
           return nearEdge % n_edges;
         } else {
@@ -820,8 +821,6 @@
       now = audioContext.currentTime;
       amp = edgeAmp[edge_u];
       if (!edgeOsc[edge_u]) {
-        console.log('new oscillator');
-        
         // set attack and decay
         /*amp = edgeAmp[edge_u];*/
         amp.gain.setValueAtTime(0, now);
@@ -844,8 +843,6 @@
         // save oscillator reference
         edgeOsc[edge_u] = osc;
       } else {
-        console.log('old oscillator');
-        
         // restart attack and decay
         amp.gain.cancelScheduledValues(now);
         amp.gain.setValueAtTime(amp.gain.value, now);
