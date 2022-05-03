@@ -339,12 +339,12 @@
   </div>
   <div class="control-bar">
     <div class="control">
-      <input type="button" onmousedown="play(0)" onmouseup="stop(0)" style="color: #ff0080" value="play 0"/>
-      <input type="button" onmousedown="play(1)" onmouseup="stop(1)" style="color: #ff8000" value="play 1"/>
-      <input type="button" onmousedown="play(2)" onmouseup="stop(2)" style="color: #ffff00" value="play 2"/>
-      <input type="button" onmousedown="play(3)" onmouseup="stop(3)" style="color: #00ff00" value="play 3"/>
-      <input type="button" onmousedown="play(4)" onmouseup="stop(4)" style="color: #0080ff" value="play 4"/>
-      <input type="button" onmousedown="play(5)" onmouseup="stop(5)" style="color: #8000ff" value="play 5"/>
+      <input type="button" onmousedown="playNote(0)" onmouseup="stopNote(0)" style="color: #ff0080" value="play 0"/>
+      <input type="button" onmousedown="playNote(1)" onmouseup="stopNote(1)" style="color: #ff8000" value="play 1"/>
+      <input type="button" onmousedown="playNote(2)" onmouseup="stopNote(2)" style="color: #ffff00" value="play 2"/>
+      <input type="button" onmousedown="playNote(3)" onmouseup="stopNote(3)" style="color: #00ff00" value="play 3"/>
+      <input type="button" onmousedown="playNote(4)" onmouseup="stopNote(4)" style="color: #0080ff" value="play 4"/>
+      <input type="button" onmousedown="playNote(5)" onmouseup="stopNote(5)" style="color: #8000ff" value="play 5"/>
     </div>
   </div>
   <canvas id="test" width="650" height="650"></canvas>
@@ -668,15 +668,6 @@
           q_a = v[0]*v[0] + v[1]*v[1]; // |a|^2
           q_b = v[2]*v[2] + v[3]*v[3]; // |b|^2
           
-          // area-sample the edge
-          /*if (abs(t_base) < 16.*(proj_scaling * r_px)) {
-            vec4 mix = line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(0.), width, t_base, proj_scaling, r_px);
-            fg_color += mix;
-            fg_alpha = max(mix.a, fg_alpha);
-            blur_color += line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(edge_color[edge % n_edges], 0.), width, 0., proj_scaling, r_px);
-            blur_samples += 1.;
-          }*/
-          
           if (m > q_a) {
             vec4.transformMat4(v, v, leftMat);
             edge = left(edge);
@@ -732,16 +723,19 @@
         /*return nearEdge % n_edges;*/
       } else {
         // we're outside the upper half-plane
-        console.log('outside');
         return null;
       }
     }
     
     // binding
     function bindMouse(element) {
-      element.addEventListener('mousedown', function(event) {
+      element.addEventListener('mousedown', (event) => {
         let r_px = planeProj(clickVec, event);
-        console.log('click on edge', address(clickVec, r_px));
+        edge_u = address(clickVec, r_px);
+        if (edge_u !== null) {
+          console.log('clicked edge', edge_u);
+          playNote(edge_u);
+        }
       });
     }
     
@@ -822,12 +816,14 @@
     const t_decay = 2;
     const t_release = 0.02;
     
-    function play(edge) {
-      edge_u = edge % n_edges;
+    function playNote(edge_u) {
+      now = audioContext.currentTime;
+      amp = edgeAmp[edge_u];
       if (!edgeOsc[edge_u]) {
+        console.log('new oscillator');
+        
         // set attack and decay
-        now = audioContext.currentTime;
-        amp = edgeAmp[edge_u];
+        /*amp = edgeAmp[edge_u];*/
         amp.gain.setValueAtTime(0, now);
         amp.gain.linearRampToValueAtTime(1, now + t_attack);
         amp.gain.exponentialRampToValueAtTime(0.005, now + t_attack + t_decay);
@@ -837,17 +833,32 @@
         console.log(lambda[edge_u]);
         osc = audioContext.createOscillator();
         osc.frequency.value = 220 / lambda[edge_u];
+        osc.addEventListener('ended', (event) => {
+          event.target.disconnect();
+          edgeOsc[edge_u] = null;
+        });
         osc.connect(amp);
         osc.start();
         osc.stop(now + t_attack + t_decay + t_release);
         
         // save oscillator reference
         edgeOsc[edge_u] = osc;
+      } else {
+        console.log('old oscillator');
+        
+        // restart attack and decay
+        amp.gain.cancelScheduledValues(now);
+        amp.gain.setValueAtTime(amp.gain.value, now);
+        amp.gain.linearRampToValueAtTime(1, now + t_attack);
+        amp.gain.exponentialRampToValueAtTime(0.005, now + t_attack + t_decay);
+        amp.gain.linearRampToValueAtTime(0, now + t_attack + t_decay + t_release);
+        
+        // reschedule oscillator stop
+        edgeOsc[edge_u].stop(now + t_attack + t_decay + t_release);
       }
     }
     
-    function stop(edge) {
-      edge_u = edge % n_edges;
+    function stopNote(edge_u) {
       osc = edgeOsc[edge_u];
       if (osc) {
         now = audioContext.currentTime;
@@ -857,7 +868,10 @@
         amp.gain.setValueAtTime(amp.gain.value, now);
         amp.gain.linearRampToValueAtTime(0, end);
         osc.stop(end);
-        edgeOsc[edge_u] = null;
+        
+        return true;
+      } else {
+        return false;
       }
     }
   </script>
