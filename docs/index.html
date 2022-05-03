@@ -97,9 +97,9 @@
     uniform float dpr;
     
     // triangulation
-    uniform int next_edge[512];
-    uniform float half_shear[128];
-    uniform vec3 edge_color[128];
+    uniform int next_edge[120];
+    uniform float half_shear[60];
+    uniform vec3 edge_color[60];
     uniform int n_edges;
     
     // viewpoint
@@ -349,7 +349,7 @@
       <input type="button" onmousedown="playNote(5)" onmouseup="stopNote(5)" style="color: #8000ff" value="play 5"/>
     </div>
   </div>
-  <div>click edges (or buttons) to play notes!</div>
+  <div>click edges or buttons to play notes, and triangles to play chords!</div>
   <canvas id="test" width="650" height="650"></canvas>
   
   <script>
