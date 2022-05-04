@@ -755,7 +755,7 @@
         
         // check whether we're within the nearest edge's active width
         let projScaling = 2 / height; // the conformal scale factor of the projection
-        let width = Math.min(/*4*/16, /*12*/48/Math.sqrt(0.5*projScaling));
+        let width = Math.min(40, 120/Math.sqrt(0.5*projScaling));
         if (Math.abs(t_near) < projScaling * (0.5 * width * r_px)) {
           return [nearEdge % n_edges];
         } else if (step < stepMax) {
