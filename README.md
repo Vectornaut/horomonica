@@ -4,8 +4,17 @@ This is a virtual implementation of the instrument described in Bob Penner's ["M
 
 ## To do
 
+* Instrument design (Bob)
+  * Look for decorated surfaces that have at least two or three triangulations with moderate λ.
+  * Write a triangulation-builder interface (Aaron). Here's an idea.
+    * The display is the Farey tesselation.
+    * Tap two edges to identify.
+    * ...?
 * Display (Aaron)
+  * Show edge active area?
+  * Adjust for device pixel ratio.
 * Click mapping (Aaron)
+  * Fine-tune edge activation width.
 * Sound
   * The [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) seems to include powerful audio synthesis tools. Since we want to play pretty simple waveforms at arbitrary pitches, synthesizing audio in the browser might be best.
 * Multitouch (François)
@@ -16,11 +25,11 @@ This is a virtual implementation of the instrument described in Bob Penner's ["M
   * We need representations for three purposes: tuning, sound, and display.
     * Is the edge adjacency table described under "display" usable for all purposes?
   * Tuning
-    * Need ability to "flip" edges, as shown in Figure 1 of the preprint.
+    * ~Need ability to "flip" edges, as shown in Figure 1 of the preprint.~
     * Need ability to edit a float-valued "λ-length" for each edge.
   * Sound
-    * Need access to λ-lengths.
+    * ~Need access to λ-lengths.~
   * Display
-    * Given λ-lengths, need to compute a float-valued "shear coordinate" for each edge.
-    * Need a table where you can take an oriented edge and look up the other two edges of the triangle you're oriented toward.
-    * The shader needs to store this representation using only arrays, since Open GL shader language doesn't have pointers.
+    * ~Given λ-lengths, need to compute a float-valued "shear coordinate" for each edge.~
+    * ~Need a table where you can take an oriented edge and look up the other two edges of the triangle you're oriented toward.~
+    * ~The shader needs to store this representation using only arrays, since Open GL shader language doesn't have pointers.~
