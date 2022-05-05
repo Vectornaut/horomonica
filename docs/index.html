@@ -730,37 +730,90 @@
         }
       } else {
         console.log('mouse: play', edges);
-        for (let k = 0; k < edges.length; k++) {
-          playNote(edges[k]);
+        edges.map(playNote);
+      }
+    }
+    
+    function EdgeTouch(touch) {
+      let r_px = planeProj(pointerVec, touch);
+      this.edges = address(pointerVec, r_px);
+    }
+    
+    const ongoingTouches = {};
+    const hitCnt = Array(n_edges);
+    hitCnt.fill(0);
+    const touched = Array(n_edges);
+    touched.fill(false);
+    
+    function instrumentTouchStart(event) {
+      let touches = event.changedTouches;
+      for (let m = 0; m < touches.length; m++) {
+        // store ongoing touch reference
+        edgeTouch = new EdgeTouch(touches[m]);
+        id = touches[m].identifier;
+        ongoingTouches[id] = edgeTouch;
+        
+        // update edge hit count
+        if (edgeTouch.edges.length === 1) {
+          hitCnt[edgeTouch.edges[0]]++;
+          console.log('hit edge', edgeTouch.edges[0]);
+          console.log('total hits', hitCnt[edgeTouch.edges[0]]);
         }
       }
     }
     
-    const touches = {};
-    const hitCnt = Array(n_edges);
-    const touched = Array(n_edges);
+    function instrumentTouchCancel(event) {
+      let touches = event.changedTouches;
+      for (let m = 0; m < touches.length; m++) {
+        let id = touches[m].identifier;
+        if (id in ongoingTouches) {
+          console.log('canceling touch #' + id.toString());
+          
+          // update edge hit count
+          edgeTouch = ongoingTouches[id];
+          if (edgeTouch.edges.length === 1) {
+            let edge = edgeTouch.edges[0];
+            hitCnt[edge] = Math.max(hitCnt[edge] - 1, 0);
+          }
+          
+          // drop ongoing touch reference
+          delete ongoingTouches[id];
+        }
+      }
+    }
     
     function instrumentTouchEnd(event) {
       let touches = event.changedTouches;
-      hitCnt.fill(0);
-      touched.fill(false);
       for (let m = 0; m < touches.length; m++) {
-        let r_px = planeProj(pointerVec, touches[m]);
-        let edges = address(pointerVec, r_px);
-        if (edges.length == 1) hitCnt[edges[0]]++;
-        for (let k = 0; k < edges.length; k++) touched[edges[k]] = true;
-      }
-      for (let k = 0; k < n_edges; k++) {
-        if (hitCnt[k] > 1) {
-          if (flip(k)) {
-            console.log('touch: flip', k);
+        let id = touches[m].identifier;
+        if (id in ongoingTouches) {
+          console.log('ending touch #' + id.toString());
+          
+          // play or flip edges as requested
+          let edges = ongoingTouches[id].edges;
+          if (edges.length === 1) {
+            let edge = edges[0];
+            console.log(hitCnt[edge].toString() + ' hits on edge ' + edge.toString());
+            if (hitCnt[edge] > 1) {
+              if (flip(edge)) {
+                console.log('touch: flip', edge);
+              } else {
+                console.log("touch: couldn't flip", edge);
+              }
+            } else if (hitCnt[edge] === 1) {
+              console.log('touch: play', edge);
+              playNote(edge);
+            }
+            hitCnt[edge] = 0;
+            console.log('no hits on edge', edge);
           } else {
-            console.log("touch: couldn't flip", k);
+            console.log('touch: play', edges);
+            edges.map(playNote);
           }
-        } else if (touched[k]) {
-          console.log('touch: play', k);
-          playNote(k);
         }
+        
+        // drop ongoing touch reference
+        delete ongoingTouches[id];
       }
     }
     
@@ -769,8 +822,9 @@
       // adding a 'touchstart' listener stops mobile browsers (Chrome, at least)
       // from firing a mousedown event when you tap
       element.addEventListener('mousedown', instrumentMouseDown);
-      element.addEventListener('touchstart', (event) => { event.preventDefault(); });
+      element.addEventListener('touchstart', instrumentTouchStart);
       element.addEventListener('touchend', instrumentTouchEnd);
+      element.addEventListener('touchcancel', instrumentTouchCancel);
     }
     
     // --- get canvases and hook up interactions ---
