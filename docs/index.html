@@ -329,27 +329,7 @@
       <input type="button" onclick="reverseRefEdge()" value="reverse"/>
     </div>
   </div>
-  <div class="control-bar">
-    <div class="control">
-      <input type="button" onclick="flip(0)" style="color: #ff0080" id="flip0" value="flip 0"/>
-      <input type="button" onclick="flip(1)" style="color: #ff8000" id="flip1" value="flip 1"/>
-      <input type="button" onclick="flip(2)" style="color: #ffff00" id="flip2" value="flip 2"/>
-      <input type="button" onclick="flip(3)" style="color: #00ff00" id="flip3" value="flip 3"/>
-      <input type="button" onclick="flip(4)" style="color: #0080ff" id="flip4" value="flip 4"/>
-      <input type="button" onclick="flip(5)" style="color: #8000ff" id="flip5" value="flip 5"/>
-    </div>
-  </div>
-  <div class="control-bar">
-    <div class="control">
-      <input type="button" onmousedown="playNote(0)" onmouseup="stopNote(0)" style="color: #ff0080" value="play 0"/>
-      <input type="button" onmousedown="playNote(1)" onmouseup="stopNote(1)" style="color: #ff8000" value="play 1"/>
-      <input type="button" onmousedown="playNote(2)" onmouseup="stopNote(2)" style="color: #ffff00" value="play 2"/>
-      <input type="button" onmousedown="playNote(3)" onmouseup="stopNote(3)" style="color: #00ff00" value="play 3"/>
-      <input type="button" onmousedown="playNote(4)" onmouseup="stopNote(4)" style="color: #0080ff" value="play 4"/>
-      <input type="button" onmousedown="playNote(5)" onmouseup="stopNote(5)" style="color: #8000ff" value="play 5"/>
-    </div>
-  </div>
-  <div>click edges or buttons to play notes, and triangles to play chords!</div>
+  <div>click edges to play notes, and triangles to play chords!</div>
   <canvas id="test" width="650" height="650"></canvas>
   
   <script>
@@ -490,6 +470,11 @@
       let nigh = [right(edge), left(edge), right(edge_inv), left(edge_inv)];
       let nigh_inv = nigh.map(inv);
       
+      // we can't flip a self-folded edge
+      if ((edge - nigh[0]) % n_edges == 0 || (edge - nigh[1]) % n_edges == 0) {
+        return false;
+      }
+      
       // avoid flipping the reference edge by moving the reference edge if
       // necessary
       refEdge_inv = inv(refEdge);
@@ -568,14 +553,8 @@
       // update note frequencies
       updateNote(edge % n_edges);
       
-      // disable flip buttons for self-folded edges
-      for (let k = 0; k < n_edges; k++) {
-        k_inv = inv(k);
-        flipButton = document.querySelector('#flip' + k.toString());
-        flipButton.disabled = (
-          (k - left(k)) % n_edges == 0 || (k - right(k)) % n_edges == 0
-        );
-      }
+      // report success
+      return true;
     }
     
     // --- triangulation interactions ---
@@ -740,16 +719,26 @@
       }
     }
     
-    // binding
-    function bindMouse(element) {
-      element.addEventListener('mousedown', (event) => {
-        let r_px = planeProj(clickVec, event);
-        touched = address(clickVec, r_px);
-        console.log('touched edges', touched);
+    function touchInstrument(event) {
+      let r_px = planeProj(clickVec, event);
+      touched = address(clickVec, r_px);
+      if (event.shiftKey && touched.length == 1) {
+        if (flip(touched[0])) {
+          console.log('flip', touched);
+        } else {
+          console.log("couldn't flip", touched);
+        }
+      } else {
+        console.log('play', touched);
         for (let k = 0; k < touched.length; k++) {
           playNote(touched[k]);
         }
-      });
+      }
+    }
+    
+    // binding
+    function bindMouse(element) {
+      element.addEventListener('mousedown', touchInstrument);
     }
     
     // --- get canvases and hook up interactions ---
