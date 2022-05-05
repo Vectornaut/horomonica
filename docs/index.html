@@ -563,7 +563,7 @@
     
     const view = 1.02;
     
-    var clickVec = mat4.create();
+    var pointerVec = mat4.create();
     
     // the mobius transformation that maps the unit disk to the upper half-
     // plane, fixing 1 and -1
@@ -719,32 +719,64 @@
       }
     }
     
-    function touchInstrument(event) {
-      let r_px = planeProj(clickVec, event);
-      touched = address(clickVec, r_px);
-      if (event.shiftKey && touched.length == 1) {
-        if (flip(touched[0])) {
-          console.log('flip', touched);
+    function instrumentMouseDown(event) {
+      let r_px = planeProj(pointerVec, event);
+      let edges = address(pointerVec, r_px);
+      if (event.shiftKey && edges.length == 1) {
+        if (flip(edges[0])) {
+          console.log('mouse: flip', edges);
         } else {
-          console.log("couldn't flip", touched);
+          console.log('mouse: couldn\'t flip', edges);
         }
       } else {
-        console.log('play', touched);
-        for (let k = 0; k < touched.length; k++) {
-          playNote(touched[k]);
+        console.log('mouse: play', edges);
+        for (let k = 0; k < edges.length; k++) {
+          playNote(edges[k]);
+        }
+      }
+    }
+    
+    const touches = {};
+    const hitCnt = Array(n_edges);
+    const touched = Array(n_edges);
+    
+    function instrumentTouchEnd(event) {
+      let touches = event.changedTouches;
+      hitCnt.fill(0);
+      touched.fill(false);
+      for (let m = 0; m < touches.length; m++) {
+        let r_px = planeProj(pointerVec, touches[m]);
+        let edges = address(pointerVec, r_px);
+        if (edges.length == 1) hitCnt[edges[0]]++;
+        for (let k = 0; k < edges.length; k++) touched[edges[k]] = true;
+      }
+      for (let k = 0; k < n_edges; k++) {
+        if (hitCnt[k] > 1) {
+          if (flip(k)) {
+            console.log('touch: flip', k);
+          } else {
+            console.log("touch: couldn't flip", k);
+          }
+        } else if (touched[k]) {
+          console.log('touch: play', k);
+          playNote(k);
         }
       }
     }
     
     // binding
-    function bindMouse(element) {
-      element.addEventListener('mousedown', touchInstrument);
+    function bindPointer(element) {
+      // adding a 'touchstart' listener stops mobile browsers (Chrome, at least)
+      // from firing a mousedown event when you tap
+      element.addEventListener('mousedown', instrumentMouseDown);
+      element.addEventListener('touchstart', (event) => { event.preventDefault(); });
+      element.addEventListener('touchend', instrumentTouchEnd);
     }
     
     // --- get canvases and hook up interactions ---
     
     var testCanvas = document.querySelector('#test');
-    bindMouse(testCanvas);
+    bindPointer(testCanvas);
     
     // --- initialize shaders ---
     
@@ -857,6 +889,7 @@
       }
     }
     
+    /* not being used right now
     function stopNote(edge_u) {
       osc = edgeOsc[edge_u];
       if (osc) {
@@ -872,7 +905,7 @@
       } else {
         return false;
       }
-    }
+    }*/
     
     function updateNote(edge_u) {
       osc = edgeOsc[edge_u];
