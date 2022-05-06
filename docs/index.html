@@ -419,7 +419,7 @@
       Fraction(1, 2),
       Fraction(3, 4)
     ];
-    var lambda = initLambda.slice();
+    var lambda = initLambda.map(x => x.clone());
     var n_edges = lambda.length
     var halfLambda = lambda.map(Math.sqrt);
     var halfShear = Array(n_edges);
@@ -454,9 +454,12 @@
       initFreq.value = freq.toFraction();
       initFreq.addEventListener('change', () => changeInitFreq(k, initFreq));
       
-      let currFreq = document.createElement('span');
+      let currFreq = document.createElement('input');
+      currFreq.type = 'text';
       currFreq.id = 'curr-freq' + String(k);
-      currFreq.textContent = freq.toFraction();
+      currFreq.classList.add('freq' + String(k));
+      currFreq.value = freq.toFraction();
+      currFreq.addEventListener('change', () => changeCurrFreq(k, currFreq));
       
       tuning.appendChild(initFreq);
       tuning.appendChild(currFreq);
@@ -470,21 +473,55 @@
         initLambda[edge] = freq.inverse();
         
         // propagate change to current lambda lengths
-        lambda = initLambda.slice();
+        lambda = initLambda.map(x => x.clone());
         flipStack.forEach(ptolemy => ptolemy.apply(lambda));
         halfLambda = lambda.map(Math.sqrt);
         updateAllShears();
-        updateFreqDisplay();
+        updateCurrFreqInputs();
       } else {
         freq = initLambda[edge].inverse();
       }
       initFreq.value = freq.toFraction();
     }
     
-    function updateFreqDisplay() {
+    function changeCurrFreq(edge, currFreq) {
+      let freq = Fraction(currFreq.value);
+      console.log(freq);
+      if (freq) {
+        // change current lambda length
+        lambda[edge] = freq.inverse();
+        halfLambda[edge] = Math.sqrt(lambda[edge]);
+        let edge_inv = edge + n_edges;
+        updateShear(edge);
+        updateShear(left(edge));
+        updateShear(right(edge));
+        updateShear(left(edge_inv));
+        updateShear(right(edge_inv));
+        
+        // propagate change to current lambda lengths
+        initLambda = lambda.map(x => x.clone());
+        for (let n = flipStack.length-1; n >= 0; n--) {
+          console.log('propagate', n);
+          flipStack[n].apply(initLambda);
+        }
+        updateInitFreqInputs();
+      } else {
+        freq = lambda[edge].inverse();
+      }
+      currFreq.value = freq.toFraction();
+    }
+    
+    function updateInitFreqInputs() {
+      for (let k = 0; k < n_edges; k++) {
+        initFreq = document.querySelector('#init-freq' + String(k));
+        initFreq.value = initLambda[k].inverse().toFraction();
+      }
+    }
+    
+    function updateCurrFreqInputs() {
       for (let k = 0; k < n_edges; k++) {
         currFreq = document.querySelector('#curr-freq' + String(k));
-        currFreq.textContent = lambda[k].inverse().toFraction();
+        currFreq.value = lambda[k].inverse().toFraction();
       }
     }
     
@@ -687,9 +724,9 @@
       // update note frequencies
       updateNote(edge % n_edges);
       
-      // update frequency display
+      // update current frequency input
       currFreq = document.querySelector('#curr-freq' + String(edge));
-      currFreq.textContent = lambda[edge % n_edges].inverse().toFraction();
+      currFreq.value = lambda[edge % n_edges].inverse().toFraction();
       
       // add flip to stack
       if (flipStack.length > 0 && ptolemy.edge === flipStack[flipStack.length-1].edge) {
