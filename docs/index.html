@@ -118,6 +118,7 @@
   <!-- OpenGL utilities -->
   <script type="text/javascript" src="twgl.min.js"></script>
   <script type="text/javascript" src="gl-matrix-min.js"></script>
+  <script type="text/javascript" src="fraction.js"></script>
   
   <!-- shaders -->
   
@@ -410,7 +411,15 @@
     // triangulation and shear coordinates
     /*[1, 1, 1, 1, 1, 1] // Farey tesselation */
     /*[1, 27/32, 2/3, 9/16, 1/2, 3/4] // minor pentatonic scale */
-    var lambda = [1, 4/5, 2/3, 3/5, 1/2, 3/4];
+    var initLambda = [
+      Fraction(1),
+      Fraction(4, 5),
+      Fraction(2, 3),
+      Fraction(3, 5),
+      Fraction(1, 2),
+      Fraction(3, 4)
+    ];
+    var lambda = initLambda.slice();
     var n_edges = lambda.length
     var halfLambda = lambda.map(Math.sqrt);
     var halfShear = Array(n_edges);
@@ -430,22 +439,52 @@
     ]
     updateAllShears();
     
+    // flip stack
+    var flipStack = [];
+    
     // create tuning controls
     tuning = document.querySelector('#tuning');
     for (let k = 0; k < n_edges; k++) {
-      let freq = 1 / lambda[k];
+      let freq = lambda[k].inverse();
       
       let initFreq = document.createElement('input');
-      initFreq.setAttribute('type', 'text');
-      initFreq.setAttribute('id', 'init-freq' + String(k));
-      initFreq.setAttribute('value', freq);
+      initFreq.type = 'text';
+      initFreq.id = 'init-freq' + String(k);
+      initFreq.value = freq.toFraction();
+      initFreq.addEventListener('change', () => changeInitFreq(k, initFreq));
       
       let currFreq = document.createElement('span');
-      currFreq.setAttribute('id', 'curr-freq' + String(k));
-      currFreq.textContent = freq.toFixed(3);
+      currFreq.id = 'curr-freq' + String(k);
+      currFreq.textContent = freq.toFraction();
       
       tuning.appendChild(initFreq);
       tuning.appendChild(currFreq);
+    }
+    
+    function changeInitFreq(edge, initFreq) {
+      let freq = Fraction(initFreq.value);
+      console.log(freq);
+      if (freq) {
+        // change initial lambda length
+        initLambda[edge] = freq.inverse();
+        
+        // propagate change to current lambda lengths
+        lambda = initLambda.slice();
+        flipStack.forEach(ptolemy => ptolemy.apply(lambda));
+        halfLambda = lambda.map(Math.sqrt);
+        updateAllShears();
+        updateFreqDisplay();
+      } else {
+        freq = initLambda[edge].inverse();
+      }
+      initFreq.value = freq.toFraction();
+    }
+    
+    function updateFreqDisplay() {
+      for (let k = 0; k < n_edges; k++) {
+        currFreq = document.querySelector('#curr-freq' + String(k));
+        currFreq.textContent = lambda[k].inverse().toFraction();
+      }
     }
     
     // display parameters
@@ -544,6 +583,22 @@
       );
     }
     
+    class Ptolemy {
+      edge
+      nigh
+      
+      constructor(edge, nigh) {
+        this.edge = edge % n_edges;
+        this.nigh = nigh.map(k => k % n_edges);
+      }
+      
+      apply(lam) {
+        lam[this.edge] = lam[this.nigh[0]].mul(lam[this.nigh[2]]).add(
+          lam[this.nigh[1]].mul(lam[this.nigh[3]])
+        ).div(lam[this.edge]);
+      }
+    }
+    
     function flip(edge) {
       // get relevant edges
       let edge_inv = inv(edge);
@@ -600,10 +655,8 @@
       }
       
       // update lambda length
-      lambda[edge % n_edges] = (
-        lambda[nigh[0] % n_edges] * lambda[nigh[2] % n_edges] +
-        lambda[nigh[1] % n_edges] * lambda[nigh[3] % n_edges]
-      ) / lambda[edge % n_edges];
+      ptolemy = new Ptolemy(edge, nigh);
+      ptolemy.apply(lambda);
       
       // update half lambda length
       halfLambda[edge % n_edges] = Math.sqrt(lambda[edge % n_edges]);
@@ -635,7 +688,10 @@
       
       // update frequency display
       currFreq = document.querySelector('#curr-freq' + String(edge));
-      currFreq.textContent = (1 / lambda[edge % n_edges]).toFixed(3);
+      currFreq.textContent = lambda[edge % n_edges].inverse().toFraction();
+      
+      // add flip to stack
+      flipStack.push(ptolemy);
       
       // report success
       return true;
@@ -814,7 +870,7 @@
         }
       } else {
         console.log('mouse: play', edges);
-        edges.map(playNote);
+        edges.forEach(playNote);
       }
     }
     
@@ -892,7 +948,7 @@
             console.log('no hits on edge', edge);
           } else {
             console.log('touch: play', edges);
-            edges.map(playNote);
+            edges.forEach(playNote);
           }
         }
         
