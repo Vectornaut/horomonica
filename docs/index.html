@@ -79,19 +79,19 @@
       font-size: inherit;
     }
     
-    input#init-freq0 { border-color: hsl(324, 100%, 50%); }
-    input#init-freq1 { border-color: hsl(36, 100%, 50%); }
-    input#init-freq2 { border-color: hsl(60, 100%, 50%); }
-    input#init-freq3 { border-color: hsl(120, 100%, 50%); }
-    input#init-freq4 { border-color: hsl(187.2, 100%, 50%); }
-    input#init-freq5 { border-color: hsl(288, 83%, 50%); }
+    input.freq0 { border-color: hsl(324, 100%, 50%); }
+    input.freq1 { border-color: hsl(36, 100%, 50%); }
+    input.freq2 { border-color: hsl(60, 100%, 50%); }
+    input.freq3 { border-color: hsl(120, 100%, 50%); }
+    input.freq4 { border-color: hsl(187.2, 100%, 50%); }
+    input.freq5 { border-color: hsl(288, 83%, 50%); }
     
-    input#init-freq0:focus { box-shadow: 0 0 8px hsl(324, 100%, 50%); }
-    input#init-freq1:focus { box-shadow: 0 0 8px hsl(36, 100%, 50%); }
-    input#init-freq2:focus { box-shadow: 0 0 8px hsl(60, 100%, 50%); }
-    input#init-freq3:focus { box-shadow: 0 0 8px hsl(120, 100%, 50%); }
-    input#init-freq4:focus { box-shadow: 0 0 8px hsl(187.2, 100%, 50%); }
-    input#init-freq5:focus { box-shadow: 0 0 8px hsl(288, 83%, 50%); }
+    input.freq0:focus { box-shadow: 0 0 8px hsl(324, 100%, 50%); }
+    input.freq1:focus { box-shadow: 0 0 8px hsl(36, 100%, 50%); }
+    input.freq2:focus { box-shadow: 0 0 8px hsl(60, 100%, 50%); }
+    input.freq3:focus { box-shadow: 0 0 8px hsl(120, 100%, 50%); }
+    input.freq4:focus { box-shadow: 0 0 8px hsl(187.2, 100%, 50%); }
+    input.freq5:focus { box-shadow: 0 0 8px hsl(288, 83%, 50%); }
     
     /*input[type=button]:hover {
       background-color: #303030;
@@ -450,6 +450,7 @@
       let initFreq = document.createElement('input');
       initFreq.type = 'text';
       initFreq.id = 'init-freq' + String(k);
+      initFreq.classList.add('freq' + String(k));
       initFreq.value = freq.toFraction();
       initFreq.addEventListener('change', () => changeInitFreq(k, initFreq));
       
@@ -691,7 +692,12 @@
       currFreq.textContent = lambda[edge % n_edges].inverse().toFraction();
       
       // add flip to stack
-      flipStack.push(ptolemy);
+      if (flipStack.length > 0 && ptolemy.edge === flipStack[flipStack.length-1].edge) {
+        // this flip undid the last one
+        flipStack.pop();
+      } else {
+        flipStack.push(ptolemy);
+      }
       
       // report success
       return true;
