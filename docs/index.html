@@ -13,6 +13,18 @@
       font-family: sans-serif;
     }
     
+    div {
+      margin: 15px 0 0 30px;
+    }
+    
+    canvas {
+      margin: 30px 0 0 30px;
+    }
+    
+    #content {
+      margin: 60px 30px 60px 30px;
+    }
+    
     .control-bar {
       display: flex;
       margin-bottom: 6px;
@@ -25,11 +37,34 @@
     }
     
     .control > input:not(:first-child) {
-      margin-left: 6px;
+      margin-left: 8px;
     }
     
     .control > label:not(:first-child) {
-      margin-left: 6px;
+      margin-left: 8px;
+    }
+    
+    #tuning {
+      display: grid;
+      grid-template-rows: auto auto;
+      grid-auto-flow: column;
+      overflow-x: scroll;
+      grid-row-gap: 6px;
+      grid-column-gap: 8px;
+      padding: 8px 0 8px 0;
+    }
+    
+    #tuning > label {
+      text-align: right;
+      white-space: nowrap;
+    }
+    
+    #tuning > input[type=text] {
+      min-width: 65px;
+    }
+    
+    #tuning > input[type=text]:focus {
+      outline: none;
     }
     
     /*
@@ -44,7 +79,21 @@
       font-size: inherit;
     }
     
-    input[type=button]:hover {
+    input#init-freq0 { border-color: hsl(324, 100%, 50%); }
+    input#init-freq1 { border-color: hsl(36, 100%, 50%); }
+    input#init-freq2 { border-color: hsl(60, 100%, 50%); }
+    input#init-freq3 { border-color: hsl(120, 100%, 50%); }
+    input#init-freq4 { border-color: hsl(187.2, 100%, 50%); }
+    input#init-freq5 { border-color: hsl(288, 83%, 50%); }
+    
+    input#init-freq0:focus { box-shadow: 0 0 8px hsl(324, 100%, 50%); }
+    input#init-freq1:focus { box-shadow: 0 0 8px hsl(36, 100%, 50%); }
+    input#init-freq2:focus { box-shadow: 0 0 8px hsl(60, 100%, 50%); }
+    input#init-freq3:focus { box-shadow: 0 0 8px hsl(120, 100%, 50%); }
+    input#init-freq4:focus { box-shadow: 0 0 8px hsl(187.2, 100%, 50%); }
+    input#init-freq5:focus { box-shadow: 0 0 8px hsl(288, 83%, 50%); }
+    
+    /*input[type=button]:hover {
       background-color: #303030;
     }
     
@@ -52,14 +101,14 @@
       color: white;
       background-color: #404040;
       border-color: hsl(0, 0%, 40%);
-    }
+    }*/
     
-    input[type=button]:disabled {
-      filter: brightness(0.5);
+    /*input[type=button]:disabled {
+      filter: brightness(0.5);*/
       /* colors adjusted to compensave for filter */
-      background-color: #404040;
+      /*background-color: #404040;
       border-color: hsl(0, 0%, 60%);
-    }
+    }*/
   </style>
   
   <!-- web fonts -->
@@ -321,19 +370,40 @@
 </head>
 
 <body>
-  <div class="control-bar">
-    <div class="control">
-      <label>change reference edge:</label>
-      <input type="button" onclick="slitherRefEdgeLeft()" value="left"/>
-      <input type="button" onclick="slitherRefEdgeRight()" value="right"/>
-      <input type="button" onclick="reverseRefEdge()" value="reverse"/>
+  <div id="content">
+    <div class="control-bar" id="tuning">
+      <label>initial tuning:</label>
+      <label>current tuning:</label>
     </div>
+    <div>click or tap an edge to play a note</div>
+    <div>click or tap a triangle to play a chord</div>
+    <div>click an edge while holding <i>shift</i>, or tap it with two fingers, to flip it</div>
+    <canvas id="test" width="650" height="650"></canvas>
   </div>
-  <div>click edges to play notes, and triangles to play chords!</div>
-  <canvas id="test" width="650" height="650"></canvas>
   
   <script>
     var mat4 = glMatrix.mat4;
+    
+    // --- edge colors ---
+    
+    function hsl2rgb([hue, sat, lite]) {
+      const scale = sat*Math.min(lite, 1-lite);
+      const shape = off => {
+        const t = (off + hue/30) % 12;
+        return lite - scale*Math.max(-1, Math.min(t-3, 9-t, 1));
+      }
+      return [shape(0), shape(8), shape(4)];
+    }
+    
+    var edgeColor = Array.prototype.concat.apply([], [
+      [324, 1, 0.5],
+      [36, 1, 0.5],
+      [60, 1, 0.5],
+      [120, 1, 0.5],
+      [187.2, 1, 0.5],
+      [288, 0.83, 0.50]
+    ].map(hsl2rgb));
+    console.log(edgeColor);
     
     // --- triangulation data and functions ---
     
@@ -358,15 +428,25 @@
       3+6, 1+6,
       4+6, 2+6
     ]
-    var edgeColor = [
-      1.0, 0.0, 0.5,
-      1.0, 0.5, 0.0,
-      1.0, 1.0, 0.0,
-      0.0, 1.0, 0.0,
-      0.0, 0.5, 1.0,
-      0.5, 0.0, 1.0
-    ]
     updateAllShears();
+    
+    // create tuning controls
+    tuning = document.querySelector('#tuning');
+    for (let k = 0; k < n_edges; k++) {
+      let freq = 1 / lambda[k];
+      
+      let initFreq = document.createElement('input');
+      initFreq.setAttribute('type', 'text');
+      initFreq.setAttribute('id', 'init-freq' + String(k));
+      initFreq.setAttribute('value', freq);
+      
+      let currFreq = document.createElement('span');
+      currFreq.setAttribute('id', 'curr-freq' + String(k));
+      currFreq.textContent = freq.toFixed(3);
+      
+      tuning.appendChild(initFreq);
+      tuning.appendChild(currFreq);
+    }
     
     // display parameters
     var bgColor = [1/128, 1/128, 1/128];
@@ -552,6 +632,10 @@
       
       // update note frequencies
       updateNote(edge % n_edges);
+      
+      // update frequency display
+      currFreq = document.querySelector('#curr-freq' + String(edge));
+      currFreq.textContent = (1 / lambda[edge % n_edges]).toFixed(3);
       
       // report success
       return true;
@@ -767,7 +851,7 @@
       for (let m = 0; m < touches.length; m++) {
         let id = touches[m].identifier;
         if (id in ongoingTouches) {
-          console.log('canceling touch #' + id.toString());
+          console.log('canceling touch #' + String(id));
           
           // update edge hit count
           edgeTouch = ongoingTouches[id];
@@ -787,13 +871,13 @@
       for (let m = 0; m < touches.length; m++) {
         let id = touches[m].identifier;
         if (id in ongoingTouches) {
-          console.log('ending touch #' + id.toString());
+          console.log('ending touch #' + String(id));
           
           // play or flip edges as requested
           let edges = ongoingTouches[id].edges;
           if (edges.length === 1) {
             let edge = edges[0];
-            console.log(hitCnt[edge].toString() + ' hits on edge ' + edge.toString());
+            console.log(String(hitCnt[edge]) + ' hits on edge ' + String(edge));
             if (hitCnt[edge] > 1) {
               if (flip(edge)) {
                 console.log('touch: flip', edge);
@@ -920,7 +1004,7 @@
         // create and start oscillator
         osc = audioContext.createOscillator();
         osc.frequency.setValueAtTime(220 / lambda[edge_u], now);
-        osc.addEventListener('ended', (event) => {
+        osc.addEventListener('ended', event => {
           event.target.disconnect();
           edgeOsc[edge_u] = null;
         });
