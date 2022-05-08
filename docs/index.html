@@ -275,7 +275,7 @@
         int step; /* for reference edge marking */
         int left_edge;
         int right_edge;
-        const int step_max = 40;
+        const int step_max = 20;
         for (/*int*/ step = 0; step < step_max; step++) {
           // shear the opposite vertex to 1
           if (step > 0 || edge != ref_edge) {
@@ -728,6 +728,9 @@
       currFreq = document.querySelector('#curr-freq' + String(edge));
       currFreq.value = lambda[edge % n_edges].inverse().toFraction();
       
+      // flag scene update
+      sceneUpdated = true;
+      
       // add flip to stack
       if (flipStack.length > 0 && ptolemy.edge === flipStack[flipStack.length-1].edge) {
         // this flip undid the last one
@@ -995,28 +998,35 @@
     
     // --- define rendering routine ---
     
+    var sceneUpdated = true;
+    
     function render(time) {
-      // size canvas
-      twgl.resizeCanvasToDisplaySize(testCanvas);
-      
-      // paint canvas
-      ctx.useProgram(programInfo.program);
-      twgl.setBuffersAndAttributes(ctx, programInfo, bufferInfo);
-      twgl.setUniforms(programInfo, {
-        resolution: [ctx.canvas.width, ctx.canvas.height],
-        shortdim: Math.min(ctx.canvas.width, ctx.canvas.height),
-        dpr: window.devicePixelRatio,
-        half_shear: halfShear,
-        next_edge: nextEdge,
-        edge_color: edgeColor,
-        n_edges: 6,
-        ref_edge: refEdge,
-        unframe: unframe,
-        view: view,
-        bg_color: bgColor,
-        bdry_color: bdryColor
-      });
-      twgl.drawBufferInfo(ctx, bufferInfo);
+      if (sceneUpdated) {
+        // size canvas
+        twgl.resizeCanvasToDisplaySize(testCanvas);
+        
+        // paint canvas
+        ctx.useProgram(programInfo.program);
+        twgl.setBuffersAndAttributes(ctx, programInfo, bufferInfo);
+        twgl.setUniforms(programInfo, {
+          resolution: [ctx.canvas.width, ctx.canvas.height],
+          shortdim: Math.min(ctx.canvas.width, ctx.canvas.height),
+          dpr: window.devicePixelRatio,
+          half_shear: halfShear,
+          next_edge: nextEdge,
+          edge_color: edgeColor,
+          n_edges: 6,
+          ref_edge: refEdge,
+          unframe: unframe,
+          view: view,
+          bg_color: bgColor,
+          bdry_color: bdryColor
+        });
+        twgl.drawBufferInfo(ctx, bufferInfo);
+        
+        // clear update flag
+        sceneUpdated = false;
+      }
       
       // request next frame
       requestAnimationFrame(render);
