@@ -378,7 +378,7 @@
     </div>
     <div>click or tap an edge to play a note</div>
     <div>click or tap a triangle to play a chord</div>
-    <div>click an edge while holding <i>shift</i>, or tap it with two fingers, to flip it</div>
+    <div>click an edge while holding <i>shift</i>, or touching outside the disk, to flip it</div>
     <canvas id="test" width="650" height="650"></canvas>
   </div>
   
@@ -917,87 +917,37 @@
       }
     }
     
-    function EdgeTouch(touch) {
+    const pedalTouches = new Map();
+    
+    function forEachChangedTouch(event, action) {
+      touches = event.changedTouches;
+      for (let m = 0; m < touches.length; m++) action(touches[m]);
+      event.preventDefault();
+    }
+    
+    function instrumentTouchStart(touch) {
       let r_px = planeProj(pointerVec, touch);
-      this.edges = address(pointerVec, r_px);
-    }
-    
-    const ongoingTouches = {};
-    const hitCnt = Array(n_edges);
-    hitCnt.fill(0);
-    const touched = Array(n_edges);
-    touched.fill(false);
-    
-    function instrumentTouchStart(event) {
-      let touches = event.changedTouches;
-      for (let m = 0; m < touches.length; m++) {
-        // store ongoing touch reference
-        edgeTouch = new EdgeTouch(touches[m]);
-        id = touches[m].identifier;
-        ongoingTouches[id] = edgeTouch;
-        
-        // update edge hit count
-        if (edgeTouch.edges.length === 1) {
-          hitCnt[edgeTouch.edges[0]]++;
-          console.log('hit edge', edgeTouch.edges[0]);
-          console.log('total hits', hitCnt[edgeTouch.edges[0]]);
-        }
-      }
-    }
-    
-    function instrumentTouchCancel(event) {
-      let touches = event.changedTouches;
-      for (let m = 0; m < touches.length; m++) {
-        let id = touches[m].identifier;
-        if (id in ongoingTouches) {
-          console.log('canceling touch #' + String(id));
-          
-          // update edge hit count
-          edgeTouch = ongoingTouches[id];
-          if (edgeTouch.edges.length === 1) {
-            let edge = edgeTouch.edges[0];
-            hitCnt[edge] = Math.max(hitCnt[edge] - 1, 0);
-          }
-          
-          // drop ongoing touch reference
-          delete ongoingTouches[id];
-        }
-      }
-    }
-    
-    function instrumentTouchEnd(event) {
-      let touches = event.changedTouches;
-      for (let m = 0; m < touches.length; m++) {
-        let id = touches[m].identifier;
-        if (id in ongoingTouches) {
-          console.log('ending touch #' + String(id));
-          
-          // play or flip edges as requested
-          let edges = ongoingTouches[id].edges;
-          if (edges.length === 1) {
-            let edge = edges[0];
-            console.log(String(hitCnt[edge]) + ' hits on edge ' + String(edge));
-            if (hitCnt[edge] > 1) {
-              if (flip(edge)) {
-                console.log('touch: flip', edge);
-              } else {
-                console.log("touch: couldn't flip", edge);
-              }
-            } else if (hitCnt[edge] === 1) {
-              console.log('touch: play', edge);
-              playNote(edge);
-            }
-            hitCnt[edge] = 0;
-            console.log('no hits on edge', edge);
+      if (pointerVec[0]*pointerVec[3] - pointerVec[1]*pointerVec[2] > 0) {
+        let edges = address(pointerVec, r_px);
+        if (pedalTouches.size === 0) {
+          console.log('touch: play', edges);
+          edges.forEach(playNote);
+        } else if (edges.length === 1) {
+          if (flip(edges[0])) {
+            console.log('touch: flip', edges[0]);
           } else {
-            console.log('touch: play', edges);
-            edges.forEach(playNote);
+            console.log("touch: couldn't flip", edges[0]);
           }
+        } else {
+          console.log('touch with pedal down');
         }
-        
-        // drop ongoing touch reference
-        delete ongoingTouches[id];
+      } else {
+        pedalTouches.set(touch.identifier, true);
       }
+    }
+    
+    function instrumentTouchDrop(touch) {
+      if (pedalTouches.has(touch.identifier)) pedalTouches.delete(touch.identifier);
     }
     
     // binding
@@ -1005,9 +955,18 @@
       // adding a 'touchstart' listener stops mobile browsers (Chrome, at least)
       // from firing a mousedown event when you tap
       element.addEventListener('mousedown', instrumentMouseDown);
-      element.addEventListener('touchstart', instrumentTouchStart);
-      element.addEventListener('touchend', instrumentTouchEnd);
-      element.addEventListener('touchcancel', instrumentTouchCancel);
+      element.addEventListener(
+        'touchstart',
+        event => forEachChangedTouch(event, instrumentTouchStart)
+      );
+      element.addEventListener(
+        'touchend',
+        event => forEachChangedTouch(event, instrumentTouchDrop)
+      );
+      element.addEventListener(
+        'touchcancel',
+        event => forEachChangedTouch(event, instrumentTouchDrop)
+      );
     }
     
     // --- get canvases and hook up interactions ---
