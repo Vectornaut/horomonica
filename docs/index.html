@@ -728,8 +728,8 @@
       currFreq = document.querySelector('#curr-freq' + String(edge));
       currFreq.value = lambda[edge % n_edges].inverse().toFraction();
       
-      // flag scene update
-      sceneUpdated = true;
+      // flag scene change
+      sceneChanged = true;
       
       // add flip to stack
       if (flipStack.length > 0 && ptolemy.edge === flipStack[flipStack.length-1].edge) {
@@ -1024,8 +1024,8 @@
         });
         twgl.drawBufferInfo(ctx, bufferInfo);
         
-        // clear update flag
-        sceneUpdated = false;
+        // clear scene change flag
+        sceneChanged = false;
       }
       
       // request next frame
