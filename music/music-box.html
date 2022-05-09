@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!--<link rel="stylesheet" type="text/css" href="" />-->
+  <style>
+    body {
+      color: #c0c0c0;
+      background-color: #202020;
+      font-family: monospace;
+    }
+    
+    div {
+      display: block;
+      margin: 0 0 0 30px;
+      white-space: pre;
+    }
+    
+    #content {
+      margin: 30px;
+    }
+    
+    .colorless { color: #c0c0c0; }
+    .edge0 { color: hsl(324, 100%, 50%); }
+    .edge1 { color: hsl(36, 100%, 50%); }
+    .edge2 { color: hsl(60, 100%, 50%); }
+    .edge3 { color: hsl(120, 100%, 50%); }
+    .edge4 { color: hsl(187.2, 100%, 50%); }
+    .edge5 { color: hsl(288, 83%, 50%); }
+  </style>
+</head>
+
+<body>
+<div id="content">
+<div>
+  w   whole
+  h   half
+  q   quarter
+  e   eighth
+  s   sixteenth
+  .   times 3/2
+</div>
+<div>
+--o--  note
+ [o]   rest
+</div>
+<div>
+.--3--.
+|    /|\
+4   / | \
+|  1  |  3
+| /   |   \
+|/    0    \
+|\    |    /
+| \   |   /
+|  2  |  5
+4   \ | /
+|    \|/
+'--5--'
+</div>
+<div>
+ λ  str
+ 
+<span class="edge4">1/2  4 -----------e-----<span class="colorless">:</span>-----------e-------------<span class="colorless">:</span>-----e.-----------------------------+</span>  :
+<span class="edge3">3/5  3 -----e-----e--h--<span class="colorless">:</span>-----e-----e--q----------<span class="colorless">:</span>-----e.--s--------------------------<span class="edge4">|</span>--<span class="colorless">:</span>-----</span>
+<span class="edge2">2/3  2 --e--------------<span class="colorless">:</span>--e--------------q----+</span>  :                              <span class="edge1">1-----<span class="edge4">|</span>--<span class="colorless">:</span>--w--</span>
+<span class="edge5">3/4  5 --------------h--<span class="colorless">:</span>--------------q-----+</span> <span class="edge2">|</span>  :                              <span class="edge1">|</span>   <span class="edge5">5-<span class="edge4">|</span>--<span class="colorless">:</span>-----</span>
+<span class="edge1">4/5  1 --------e--e-----<span class="colorless">:</span>--------e--e-----q--<span class="edge5">|</span>-<span class="edge2">|</span>--<span class="colorless">:</span>------------e--q-----+</span>        <span class="edge1">|</span> <span class="edge2">2-<span class="edge5">|</span>-<span class="edge4">|</span>--<span class="colorless">:</span>--w--</span>
+<span class="edge0">1/1  0 --------------h--<span class="colorless">:</span>--------------q--q--<span class="edge5">|</span>-<span class="edge2">|</span>--<span class="colorless">:</span>------------------e--<span class="edge1">|</span>----q.--<span class="edge1">|</span>-<span class="edge2">|</span>-<span class="edge5">|</span>-<span class="edge4">|</span>--<span class="colorless">:</span>-----</span>
+                        :                    <span class="edge5">|</span> <span class="edge2">|</span>  :                     <span class="edge1">|</span> <span class="edge2">2--q.--<span class="edge1">|</span>-+</span> <span class="edge5">|</span> <span class="edge4">|</span>  :
+                        :                    <span class="edge5">5-<span class="edge2">|</span>--<span class="colorless">:</span>-----e.--------q-----<span class="edge1">|</span>-<span class="edge2">|</span>------<span class="edge1">|</span>---+</span> <span class="edge4">|</span>  :
+                        :                      <span class="edge2">|</span>  :                     <span class="edge1">1-<span class="edge2">|</span>--q.--+</span>     <span class="edge4">|</span>  :
+                        :                      <span class="edge2">2--:---------------q-------+</span>            <span class="edge4">|</span>  :
+                        :                         :                                    <span class="edge4">4--<span class="colorless">:</span>--w--</span>
+</div>
+</body>
+</html>
