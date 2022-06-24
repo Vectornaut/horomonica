@@ -48,7 +48,7 @@
       align-items: center;
     }
     
-    .control > input:not(:first-child) {
+    .control > input:not(:first-child), select:not(:first-child) {
       margin-left: 8px;
     }
     
@@ -387,6 +387,15 @@
     <div class="control-bar" id="tuning">
       <label>initial tuning:</label>
       <label>current tuning:</label>
+    </div>
+    <div class="control-bar">
+      <div class="control">
+        <label for="tone">tone:</label>
+        <select id="tone">
+          <option>Pure</option>
+          <option>Shepard</option>
+        </select>
+      </div>
     </div>
     <div>click or tap an edge to play a note</div>
     <div>click or tap a triangle to play a chord</div>
@@ -1051,6 +1060,9 @@
     
     // --- set up audio ---
     
+    // get tone control
+    tone = document.querySelector("#tone");
+    
     // main context
     var audioContext = new (window.AudioContext || window.webkitAudioContext)();
     var mainAmp = audioContext.createGain();
@@ -1061,9 +1073,21 @@
     var edgeOsc = Array(n_edges);
     edgeOsc.fill(null);
     var edgeAmp = Array(n_edges);
+    var shepardOsc = Array(n_edges);
+    var shepardAmp = Array(n_edges);
+    const shepardRange = 9;
+    const shepardLow = 3; // log(frequency / Hz)
+    const shepardHigh = shepardLow + shepardRange;
     for (let k = 0; k < n_edges; k++) {
       edgeAmp[k] = audioContext.createGain();
       edgeAmp[k].connect(mainAmp);
+      shepardOsc[k] = Array(shepardRange);
+      shepardOsc[k].fill(null);
+      shepardAmp[k] = Array(shepardRange);
+      for (let j = 0; j < shepardRange; j++) {
+        shepardAmp[k][j] = audioContext.createGain();
+        shepardAmp[k][j].connect(edgeAmp[k]);
+      }
     }
     
     const t_attack = 0.02;
@@ -1073,9 +1097,9 @@
     
     function playNote(edge_u) {
       console.log(lambda[edge_u]);
-      now = audioContext.currentTime;
-      amp = edgeAmp[edge_u];
-      if (!edgeOsc[edge_u]) {
+      var now = audioContext.currentTime;
+      var amp = edgeAmp[edge_u];
+      if (!edgeOsc[edge_u] && !shepardOsc[edge_u][0]) {
         // set attack and decay
         /*amp = edgeAmp[edge_u];*/
         amp.gain.setValueAtTime(0, now);
@@ -1083,19 +1107,51 @@
         amp.gain.exponentialRampToValueAtTime(0.005, now + t_attack + t_decay);
         amp.gain.linearRampToValueAtTime(0, now + t_attack + t_decay + t_release);
         
-        // create and start oscillator
-        osc = audioContext.createOscillator();
-        osc.frequency.setValueAtTime(220 / lambda[edge_u], now);
-        osc.addEventListener('ended', event => {
-          event.target.disconnect();
-          edgeOsc[edge_u] = null;
-        });
-        osc.connect(amp);
-        osc.start();
-        osc.stop(now + t_attack + t_decay + t_release);
-        
-        // save oscillator reference
-        edgeOsc[edge_u] = osc;
+        if (tone.selectedIndex === 0) {
+          // create and start oscillator
+          let osc = audioContext.createOscillator();
+          osc.frequency.setValueAtTime(220 / lambda[edge_u], now);
+          osc.addEventListener('ended', event => {
+            event.target.disconnect();
+            edgeOsc[edge_u] = null;
+          });
+          osc.connect(amp);
+          osc.start();
+          osc.stop(now + t_attack + t_decay + t_release);
+          
+          // save oscillator reference
+          edgeOsc[edge_u] = osc;
+        } else {
+          let logFreq = Math.log2(220 / lambda[edge_u]); // log(frequency / Hz)
+          logFreq += Math.ceil(shepardLow - logFreq);
+          freq = Math.pow(2, logFreq);
+          logFreqDiff = logFreq - shepardLow;
+          for (let j = 0; j < shepardRange; j++) {
+            // adjust amplitude
+            let amp = shepardAmp[edge_u][j];
+            let envelope = 1 - Math.cos(2*Math.PI * logFreqDiff / shepardRange);
+            amp.gain.setValueAtTime(envelope / shepardRange, now);
+            console.log(envelope);
+            
+            // create and start oscillator
+            let osc = audioContext.createOscillator();
+            osc.frequency.setValueAtTime(freq, now);
+            osc.addEventListener('ended', event => {
+              event.target.disconnect();
+              shepardOsc[edge_u][j] = null;
+            });
+            osc.connect(amp);
+            osc.start();
+            osc.stop(now + t_attack + t_decay + t_release);
+            
+            // save oscillator reference
+            shepardOsc[edge_u][j] = osc;
+            
+            // go to next octave
+            logFreqDiff += 1;
+            freq *= 2;
+          }
+        }
       } else {
         // restart attack and decay
         amp.gain.cancelScheduledValues(now);
@@ -1105,7 +1161,13 @@
         amp.gain.linearRampToValueAtTime(0, now + t_attack + t_decay + t_release);
         
         // reschedule oscillator stop
-        edgeOsc[edge_u].stop(now + t_attack + t_decay + t_release);
+        if (edgeOsc[edge_u]) {
+          edgeOsc[edge_u].stop(now + t_attack + t_decay + t_release);
+        } else {
+          for (let j = 0; j < shepardRange; j++) {
+            shepardOsc[edge_u][j].stop(now + t_attack + t_decay + t_release);
+          }
+        }
       }
     }
     
@@ -1128,13 +1190,38 @@
     }*/
     
     function updateNote(edge_u) {
-      osc = edgeOsc[edge_u];
-      if (osc) {
-        now = audioContext.currentTime;
-        end = now + t_glide;
-        osc.frequency.cancelScheduledValues(now);
-        osc.frequency.setValueAtTime(osc.frequency.value, now);
-        osc.frequency.linearRampToValueAtTime(220 / lambda[edge_u], end);
+      if (edgeOsc[edge_u] || shepardOsc[edge_u][0]) {
+        let now = audioContext.currentTime;
+        let end = now + t_glide;
+        if (edgeOsc[edge_u]) {
+          osc = edgeOsc[edge_u];
+          osc.frequency.cancelScheduledValues(now);
+          osc.frequency.setValueAtTime(osc.frequency.value, now);
+          osc.frequency.linearRampToValueAtTime(220 / lambda[edge_u], end);
+        } else {
+          let logFreq = Math.log2(220 / lambda[edge_u]); // log(frequency / Hz)
+          logFreq += Math.ceil(shepardLow - logFreq);
+          freq = Math.pow(2, logFreq);
+          logFreqDiff = logFreq - shepardLow;
+          for (let j = 0; j < shepardRange; j++) {
+            // update amplitude
+            let amp = shepardAmp[edge_u][j];
+            let envelope = 1 - Math.cos(2*Math.PI * logFreqDiff / shepardRange);
+            amp.gain.cancelScheduledValues(now);
+            amp.gain.setValueAtTime(amp.gain.value, now);
+            amp.gain.linearRampToValueAtTime(envelope / shepardRange, end);
+            
+            // update frequency
+            osc = shepardOsc[edge_u][j];
+            osc.frequency.cancelScheduledValues(now);
+            osc.frequency.setValueAtTime(osc.frequency.value, now);
+            osc.frequency.linearRampToValueAtTime(freq, end);
+            
+            // go to next octave
+            logFreqDiff += 1;
+            freq *= 2;
+          }
+        }
       }
     }
   </script>
