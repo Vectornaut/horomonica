@@ -261,7 +261,7 @@
         int edge = ref_edge;
         if (dot(v.xy, v.zw) < 0.) {
           v = half_turn * v;
-          edge = (edge + 6) % (2*n_edges);
+          edge = (edge + n_edges) % (2*n_edges);
         }
         
         // during the walk, we'll use these to see whether we're beyond the left
@@ -347,9 +347,9 @@
         
         /* mark the reference edge */
         vec3 color = bg_color;
-        /*if (step == 0 && edge == ref_edge) {
+        if (step == 0 && edge == ref_edge) {
           color = mix(color, edge_color[ref_edge % n_edges], 0.4*exp(-3.*m * (exp(-3.*q_a) + exp(-3.*q_b)) / (q_a*exp(-3.*q_a) + q_b*exp(-3.*q_b))));
-        }*/
+        }
         
         // area-sample the left and right edges
         if (abs(t_left) < 16.*(proj_scaling * r_px)) {
@@ -431,62 +431,86 @@
     
     // --- triangulation data and functions ---
     
+    class Triangulation {
+      initLambda
+      nextEdge
+      
+      constructor(initLambda, nextEdge) {
+        this.initLambda = initLambda;
+        this.nextEdge = nextEdge;
+      }
+    }
+    
+    function setTriangulation(tri) {
+      // initialize shears
+      initLambda = tri.initLambda.map(x => x.clone());
+      lambda = initLambda.map(x => x.clone());
+      n_edges = lambda.length;
+      halfLambda = lambda.map(Math.sqrt);
+      halfShear = Array(n_edges);
+      nextEdge = Array.from(tri.nextEdge);
+      updateAllShears();
+      
+      // clear flip stack
+      flipStack = [];
+      
+      // create tuning controls
+      tuning = document.querySelector('#tuning');
+      while (tuning.lastChild) {
+        tuning.removeChild(tuning.lastChild);
+      }
+      for (let k = 0; k < n_edges; k++) {
+        let freq = lambda[k].inverse();
+        
+        let initFreq = document.createElement('input');
+        initFreq.type = 'text';
+        initFreq.id = 'init-freq' + String(k);
+        initFreq.classList.add('freq' + String(k));
+        initFreq.value = freq.toFraction();
+        initFreq.addEventListener('change', () => changeInitFreq(k, initFreq));
+        
+        let currFreq = document.createElement('input');
+        currFreq.type = 'text';
+        currFreq.id = 'curr-freq' + String(k);
+        currFreq.classList.add('freq' + String(k));
+        currFreq.value = freq.toFraction();
+        currFreq.addEventListener('change', () => changeCurrFreq(k, currFreq));
+        
+        tuning.appendChild(initFreq);
+        tuning.appendChild(currFreq);
+      }
+      
+      // set viewpoint
+      let x = Math.sqrt(halfShear[refEdge]);
+      unframe = mat4.fromValues(
+        1/x,   0, 0, 0,
+        0,   1/x, 0, 0,
+        0,     0, x, 0,
+        0,     0, 0, x
+      );
+      
+      // set boundary color
+      bdryColor = [0, 0, 0];
+      for (let c = 0; c < 3; c++) {
+        for (let k = 0; k < n_edges; k++) {
+          bdryColor[c] += edgeColor[3*k+c];
+        }
+        bdryColor[c] = (bdryColor[c]/n_edges + bgColor[c]) / 2;
+      }
+    }
+    
     // triangulation and shear coordinates
     /*[1, 1, 1, 1, 1, 1] // Farey tesselation */
     /*[1, 27/32, 2/3, 9/16, 1/2, 3/4] // minor pentatonic scale */
-    var initLambda = [
-      Fraction(1),
-      Fraction(4, 5),
-      Fraction(2, 3),
-      Fraction(3, 5),
-      Fraction(1, 2),
-      Fraction(3, 4)
-    ];
-    var lambda = initLambda.map(x => x.clone());
-    var n_edges = lambda.length
-    var halfLambda = lambda.map(Math.sqrt);
-    var halfShear = Array(n_edges);
-    var nextEdge = [
-      3, 5+6,
-      4, 3+6,
-      5, 4+6,
-      1+6, 4,
-      2+6, 5,
-      0+6, 3,
-      2, 1,
-      0, 2,
-      1, 0,
-      5+6, 0+6,
-      3+6, 1+6,
-      4+6, 2+6
-    ]
-    updateAllShears();
+    var initLambda
+    var lambda;
+    var n_edges;
+    var halfLambda;
+    var halfShear;
+    var nextEdge;
     
     // flip stack
-    var flipStack = [];
-    
-    // create tuning controls
-    tuning = document.querySelector('#tuning');
-    for (let k = 0; k < n_edges; k++) {
-      let freq = lambda[k].inverse();
-      
-      let initFreq = document.createElement('input');
-      initFreq.type = 'text';
-      initFreq.id = 'init-freq' + String(k);
-      initFreq.classList.add('freq' + String(k));
-      initFreq.value = freq.toFraction();
-      initFreq.addEventListener('change', () => changeInitFreq(k, initFreq));
-      
-      let currFreq = document.createElement('input');
-      currFreq.type = 'text';
-      currFreq.id = 'curr-freq' + String(k);
-      currFreq.classList.add('freq' + String(k));
-      currFreq.value = freq.toFraction();
-      currFreq.addEventListener('change', () => changeCurrFreq(k, currFreq));
-      
-      tuning.appendChild(initFreq);
-      tuning.appendChild(currFreq);
-    }
+    var flipStack;
     
     function changeInitFreq(edge, initFreq) {
       let freq = Fraction(initFreq.value);
@@ -550,28 +574,11 @@
     
     // display parameters
     var bgColor = [1/128, 1/128, 1/128];
-    /*var bdryColor = bgColor;*/
-    var bdryColor = [0, 0, 0];
-    for (let c = 0; c < 3; c++) {
-      for (let k = 0; k < n_edges; k++) {
-        bdryColor[c] += edgeColor[3*k+c];
-      }
-      bdryColor[c] = (bdryColor[c]/n_edges + bgColor[c]) / 2;
-    }
+    var bdryColor;
     
     // viewpoint
     var refEdge = 0;
-    {
-      let x = Math.sqrt(halfShear[refEdge]);
-      var unframe = mat4.fromValues(
-        1/x,   0, 0, 0,
-        0,   1/x, 0, 0,
-        0,     0, x, 0,
-        0,     0, 0, x
-      );
-      /*var unframe = mat4.create();
-      mat4.identity(unframe);*/
-    }
+    var unframe;
     
     function left(edge) {
       return nextEdge[2*edge];
@@ -836,7 +843,7 @@
         let edge = refEdge;
         if (v[0]*v[2] + v[1]*v[3] < 0.) {
           vec4.transformMat4(v, v, halfTurn);
-          edge = (edge + 6) % (2*n_edges);
+          edge = (edge + n_edges) % (2*n_edges);
         }
         
         // during the walk, we'll use these to see whether we're beyond the left
@@ -995,6 +1002,62 @@
       );
     }
     
+    // --- initialize triangulation ---
+    
+    const tetrahedron = new Triangulation(
+      [
+        Fraction(1),
+        Fraction(4, 5),
+        Fraction(2, 3),
+        Fraction(3, 5),
+        Fraction(1, 2),
+        Fraction(3, 4)
+      ],
+      [
+        3, 5+6,
+        4, 3+6,
+        5, 4+6,
+        1+6, 4,
+        2+6, 5,
+        0+6, 3,
+        2, 1,
+        0, 2,
+        1, 0,
+        5+6, 0+6,
+        3+6, 1+6,
+        4+6, 2+6
+      ]
+    );
+    
+    const simpleTorus = new Triangulation(
+      [
+        Fraction(1),
+        Fraction(2, 3),
+        Fraction(3, 4)
+      ],
+      [
+        1, 2,
+        2+3, 0,
+        0, 1+3,
+        1+3, 2+3,
+        2, 0+3,
+        0+3, 1
+      ]
+    );
+    
+    setTriangulation(tetrahedron);
+    console.log(
+      halfShear,
+      nextEdge,
+      edgeColor,
+      n_edges,
+      refEdge,
+      unframe,
+      view,
+      bgColor,
+      bdryColor
+    )
+    
     // --- get canvases and hook up interactions ---
     
     var testCanvas = document.querySelector('#test');
@@ -1038,7 +1101,7 @@
           half_shear: halfShear,
           next_edge: nextEdge,
           edge_color: edgeColor,
-          n_edges: 6,
+          n_edges: n_edges,
           ref_edge: refEdge,
           unframe: unframe,
           view: view,
