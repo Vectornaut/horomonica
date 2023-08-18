@@ -1084,11 +1084,12 @@
     
     // --- define rendering routine ---
     
-    var sceneUpdated = true;
+    var sceneChanged = true;
     
     function render(time) {
-      if (sceneUpdated) {
+      if (sceneChanged) {
         // size canvas
+        console.log("repaint")
         twgl.resizeCanvasToDisplaySize(testCanvas);
         
         // paint canvas
