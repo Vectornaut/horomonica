@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!--<link rel="stylesheet" type="text/css" href="" />-->
+  <style>
+    body {
+      color: #c0c0c0;
+      background-color: #202020;
+      font-family: sans-serif;
+    }
+
+    #display {
+      width: 600px;
+      height: 600px;
+      background-color: #061722;
+    }
+  </style>
+
+  <title>Scroll test</title>
+</head>
+
+<body>
+  <!--
+    `width` and `height` set drawing context dimensions, which are independent
+    of display dimensions!
+  -->
+  <canvas id="display" width="600", height="600"></canvas>
+
+  <script>
+    // --- scroll interaction ---
+
+    const trackedTouches = new Map();
+
+    function forEachChangedTouch(event, action) {
+      touches = event.changedTouches;
+      for (let m = 0; m < touches.length; m++) action(touches[m]);
+      event.preventDefault();
+    }
+
+    function scrollTouchStart(touch) {
+      trackedTouches.set(touch.identifier, {
+        anchorX: touch.clientX,
+        anchorY: touch.clientY,
+        x: touch.clientX,
+        y: touch.clientY
+      });
+    }
+
+    function scrollTouchMove(touch) {
+      if (trackedTouches.has(touch.identifier)) {
+        record = trackedTouches.get(touch.identifier);
+        record.x = touch.clientX;
+        record.y = touch.clientY;
+        sceneChanged = true;
+      }
+    }
+
+    function scrollTouchDrop(touch) {
+      if (trackedTouches.has(touch.identifier)) {
+        trackedTouches.delete(touch.identifier);
+        sceneChanged = true;
+      }
+    }
+
+    // binding
+    function bindPointer(element) {
+      element.addEventListener(
+        'touchstart',
+        event => forEachChangedTouch(event, scrollTouchStart)
+      );
+      element.addEventListener(
+        'touchmove',
+        event => forEachChangedTouch(event, scrollTouchMove)
+      );
+      element.addEventListener(
+        'touchend',
+        event => forEachChangedTouch(event, scrollTouchDrop)
+      );
+      element.addEventListener(
+        'touchcancel',
+        event => forEachChangedTouch(event, scrollTouchDrop)
+      );
+    }
+
+    // --- get canvases and hook up interactions ---
+    
+    var display = document.querySelector('#display');
+    bindPointer(display);
+
+    const ctx = display.getContext("2d");
+
+    // --- define rendering routine ---
+    
+    var sceneChanged = true;
+    
+    const showTouch = (value) => {
+      ctx.beginPath();
+      ctx.moveTo(value.anchorX, value.anchorY);
+      ctx.lineTo(value.x, value.y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(value.anchorX, value.anchorY, 10, 0, 2*Math.PI);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(value.x, value.y, 10, 0, 2*Math.PI);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    function render(time) {
+      if (sceneChanged) {
+        console.log("repaint");
+
+        // size canvas
+        /*twgl.resizeCanvasToDisplaySize(display);*/
+
+        // clear canvas
+        ctx.clearRect(0, 0, 600, 600);
+
+        // set ink
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "white";
+        ctx.fillStyle = "rgb(50, 0, 200)";
+
+        // paint canvas
+        trackedTouches.forEach(showTouch);
+        
+        // clear scene change flag
+        sceneChanged = false;
+      }
+      
+      // request next frame
+      requestAnimationFrame(render);
+    }
+    
+    // kick off animation
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
