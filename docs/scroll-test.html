@@ -40,12 +40,14 @@
     const vec2 = glMatrix.vec2;
 
     function eventDir(event) {
-      let rect = event.target.getBoundingClientRect();
-      let shortdim = Math.min(rect.width, rect.height);
-      return vec2.fromValues(
+      const rect = event.target.getBoundingClientRect();
+      const shortdim = Math.min(rect.width, rect.height);
+      let dir = vec2.fromValues(
         (2*(event.clientX - rect.left) - rect.width) / shortdim,
         (2*(rect.bottom - event.clientY) - rect.height) / shortdim,
       );
+      vec2.normalize(dir, dir);
+      return dir;
     }
 
     const trackedTouches = new Map();
@@ -102,26 +104,41 @@
 
     const ctx = display.getContext("2d");
 
+    // set ink
+    ctx.lineWidth = 2;
+    ctx.fillStyle = "white";
+
     // --- define rendering routine ---
     
     var sceneChanged = true;
     
     const showTouch = (track) => {
-      const ink = [255, 0, 255];
-      for (let t = track.length-2; t >= 0; t--) {
-        ctx.strokeStyle = "rgb(" + ink.join() + ")";
+      for (let t = 0; t < track.length-1; t++) {
+        ctx.strokeStyle = "rgb(" + [255*Math.pow(0.99, track.length - t), 0, 255*Math.pow(0.995, track.length - t), ].join() + ")";
         ctx.beginPath();
-        ctx.moveTo(300*(1 + track[t+1][0]), 300*(1 - track[t+1][1]));
-        ctx.lineTo(300*(1 + track[t][0]), 300*(1 - track[t][1]));
+        ctx.moveTo(300*(1 + 0.5*track[t+1][0]), 300*(1 - 0.5*track[t+1][1]));
+        ctx.lineTo(300*(1 + 0.5*track[t][0]), 300*(1 - 0.5*track[t][1]));
         ctx.stroke();
-        ink[0] *= 0.99;
-        ink[2] *= 0.995;
       }
 
       ctx.strokeStyle = "white";
       ctx.beginPath();
-      ctx.arc(300*(1 + track[0][0]), 300*(1 - track[0][1]), 5, 0, 2*Math.PI);
+      ctx.arc(300*(1 + 0.5*track[0][0]), 300*(1 - 0.5*track[0][1]), 5, 0, 2*Math.PI);
       ctx.stroke();
+
+      let fin = track[track.length-1];
+      ctx.beginPath();
+      ctx.arc(300*(1 + 0.5*fin[0]), 300*(1 - 0.5*fin[1]), 5, 0, 2*Math.PI);
+      ctx.stroke();
+
+      const half = vec2.fromValues(
+        Math.sign(fin[1])*Math.sqrt(0.5*(1 + fin[0])),
+        Math.sqrt(0.5*(1 - fin[0]))
+      );
+
+      ctx.beginPath();
+      ctx.arc(300*(1 + 0.5*half[0]), 300*(1 - 0.5*half[1]), 5, 0, 2*Math.PI);
+      ctx.fill();
     }
 
     function render(time) {
@@ -133,9 +150,6 @@
 
         // clear canvas
         ctx.clearRect(0, 0, 600, 600);
-
-        // set ink
-        ctx.lineWidth = 2;
 
         // paint canvas
         trackedTouches.forEach(showTouch);
