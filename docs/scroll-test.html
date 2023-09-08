@@ -16,9 +16,13 @@
     #display {
       width: 600px;
       height: 600px;
+      margin: 60px 0 0 60px;
       background-color: #061722;
     }
   </style>
+
+  <!-- OpenGL utilities -->
+  <script type="text/javascript" src="gl-matrix-min.js"></script>
 
   <title>Scroll test</title>
 </head>
@@ -33,6 +37,17 @@
   <script>
     // --- scroll interaction ---
 
+    const vec2 = glMatrix.vec2;
+
+    function eventDir(event) {
+      let rect = event.target.getBoundingClientRect();
+      let shortdim = Math.min(rect.width, rect.height);
+      return vec2.fromValues(
+        (2*(event.clientX - rect.left) - rect.width) / shortdim,
+        (2*(rect.bottom - event.clientY) - rect.height) / shortdim,
+      );
+    }
+
     const trackedTouches = new Map();
 
     function forEachChangedTouch(event, action) {
@@ -42,19 +57,13 @@
     }
 
     function scrollTouchStart(touch) {
-      trackedTouches.set(touch.identifier, {
-        anchorX: touch.clientX,
-        anchorY: touch.clientY,
-        x: touch.clientX,
-        y: touch.clientY
-      });
+      trackedTouches.set(touch.identifier, [eventDir(touch)]);
     }
 
     function scrollTouchMove(touch) {
       if (trackedTouches.has(touch.identifier)) {
-        record = trackedTouches.get(touch.identifier);
-        record.x = touch.clientX;
-        record.y = touch.clientY;
+        track = trackedTouches.get(touch.identifier);
+        track.push(eventDir(touch));
         sceneChanged = true;
       }
     }
@@ -97,20 +106,21 @@
     
     var sceneChanged = true;
     
-    const showTouch = (value) => {
-      ctx.beginPath();
-      ctx.moveTo(value.anchorX, value.anchorY);
-      ctx.lineTo(value.x, value.y);
-      ctx.stroke();
+    const showTouch = (track) => {
+      const ink = [255, 0, 255];
+      for (let t = track.length-2; t >= 0; t--) {
+        ctx.strokeStyle = "rgb(" + ink.join() + ")";
+        ctx.beginPath();
+        ctx.moveTo(300*(1 + track[t+1][0]), 300*(1 - track[t+1][1]));
+        ctx.lineTo(300*(1 + track[t][0]), 300*(1 - track[t][1]));
+        ctx.stroke();
+        ink[0] *= 0.99;
+        ink[2] *= 0.995;
+      }
 
+      ctx.strokeStyle = "white";
       ctx.beginPath();
-      ctx.arc(value.anchorX, value.anchorY, 10, 0, 2*Math.PI);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(value.x, value.y, 10, 0, 2*Math.PI);
-      ctx.fill();
+      ctx.arc(300*(1 + track[0][0]), 300*(1 - track[0][1]), 5, 0, 2*Math.PI);
       ctx.stroke();
     }
 
@@ -126,8 +136,6 @@
 
         // set ink
         ctx.lineWidth = 2;
-        ctx.strokeStyle = "white";
-        ctx.fillStyle = "rgb(50, 0, 200)";
 
         // paint canvas
         trackedTouches.forEach(showTouch);
