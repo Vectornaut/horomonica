@@ -1151,7 +1151,7 @@
       );
       mat4.multiplyScalar(vUnframe, vUnframe, timeStep);
       quickExp(stepUnframe, vUnframe);
-      mat4.multiply(unframe, stepUnframe, unframe);
+      mat4.multiply(unframe, unframe, stepUnframe);
       lastTime = time;
 
       if (sceneChanged) {
