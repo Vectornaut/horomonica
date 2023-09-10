@@ -775,7 +775,7 @@
     
     // --- triangulation interactions ---
     
-    var vec4 = glMatrix.vec4;
+    const vec4 = glMatrix.vec4;
     
     const view = 1.02;
     
@@ -982,7 +982,7 @@
     function instrumentTouchDrop(touch) {
       if (pedalTouches.has(touch.identifier)) pedalTouches.delete(touch.identifier);
     }
-    
+
     // binding
     function bindPointer(element) {
       // adding a 'touchstart' listener stops mobile browsers (Chrome, at least)
@@ -1001,9 +1001,62 @@
         event => forEachChangedTouch(event, instrumentTouchDrop)
       );
     }
-    
+
+    // --- viewpoint interactions ---
+
+    const viewSpeed = 0.1; // in curvature units per second
+
+    var lastTime = 0;
+
+    var walk = 0;
+    var fStrafe = 0;
+    var bStrafe = 0;
+    const vUnframe = mat4.create();
+    const stepUnframe = mat4.create();
+
+    // matrix exponential. default number of terms imitates the Julia base
+    // library's `expm1_small`
+    const term = mat4.create();
+    function quickExp(out, a, nTerms = 12) {
+      mat4.identity(out);
+      mat4.copy(term, a);
+      mat4.add(out, out, term);
+      for (let n = 2; n < nTerms; n++) {
+        mat4.multiply(term, a, term);
+        mat4.multiplyScalar(term, term, 1/n);
+        mat4.add(out, out, term);
+      }
+    }
+
+    function viewKeyDown(event) {
+      if (event.key === 'd') walk = -viewSpeed;
+      else if (event.key === 'e') walk = viewSpeed;
+      else if (event.key === 'w') fStrafe = -viewSpeed;
+      else if (event.key === 'r') fStrafe = viewSpeed;
+      else if (event.key === 's') bStrafe = -viewSpeed;
+      else if (event.key === 'f') bStrafe = viewSpeed;
+      sceneChanged = true;
+    }
+
+    function viewKeyUp(event) {
+      if (event.key === 'd' || event.key === 'e') walk = 0;
+      else if (event.key === 's' || event.key === 'f') bStrafe = 0;
+      else if (event.key === 'w' || event.key === 'r') fStrafe = 0;
+      sceneChanged = true;
+    }
+
+    function viewMoving() {
+      return walk != 0 || fStrafe != 0 || bStrafe != 0;
+    }
+
+    // binding
+    function bindKeyboard(element) {
+      element.addEventListener('keydown', viewKeyDown);
+      element.addEventListener('keyup', viewKeyUp);
+    }
+
     // --- initialize triangulation ---
-    
+
     const tetrahedron = new Triangulation(
       [
         Fraction(1),
@@ -1062,6 +1115,7 @@
     
     var testCanvas = document.querySelector('#test');
     bindPointer(testCanvas);
+    bindKeyboard(window);
     
     // --- initialize shaders ---
     
@@ -1087,6 +1141,19 @@
     var sceneChanged = true;
     
     function render(time) {
+      // handle keyboard input
+      const timeStep = 0.001*(time - lastTime);
+      mat4.set(vUnframe,
+          -walk,       0, bStrafe,       0,
+              0,   -walk,       0, bStrafe,
+        fStrafe,       0,    walk,       0,
+              0, fStrafe,       0,    walk
+      );
+      mat4.multiplyScalar(vUnframe, vUnframe, timeStep);
+      quickExp(stepUnframe, vUnframe);
+      mat4.multiply(unframe, stepUnframe, unframe);
+      lastTime = time;
+
       if (sceneChanged) {
         // size canvas
         console.log("repaint");
@@ -1112,7 +1179,7 @@
         twgl.drawBufferInfo(ctx, bufferInfo);
         
         // clear scene change flag
-        sceneChanged = false;
+        sceneChanged = viewMoving();
       }
       
       // request next frame
