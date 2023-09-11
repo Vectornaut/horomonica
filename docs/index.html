@@ -390,6 +390,15 @@
     </div>
     <div class="control-bar">
       <div class="control">
+        <label for="surf">surface:</label>
+        <select id="surf">
+          <option>Sphere, 4 cusps</option>
+          <option>Torus, 2 cusps</option>
+        </select>
+      </div>
+    </div>
+    <div class="control-bar">
+      <div class="control">
         <label for="tone">tone:</label>
         <select id="tone">
           <option>Pure</option>
@@ -397,9 +406,10 @@
         </select>
       </div>
     </div>
-    <div>click or tap an edge to play a note</div>
-    <div>click or tap a triangle to play a chord</div>
-    <div>click an edge while holding <i>shift</i>, or touching outside the disk, to flip it</div>
+    <div>tap or click an edge to play a note</div>
+    <div>tap or click a triangle to play a chord</div>
+    <div>tap an edge while touching outside the disk, or holding <i>shift</i>, to flip it</div>
+    <div>use the keys <b>W E R / S D F</b> to scroll</div>
     <canvas id="test" width="650" height="650"></canvas>
     <div>based on Robert Penner&rsquo;s &ldquo;<a href="http://preprints.ihes.fr/2021/M/M-21-12.pdf">Music of moduli spaces</a>&rdquo;</div>
     <div>example pieces: <a href="music/tetra.html">tetra</a> | <a href="music/music-box.html">music box</a></div>
@@ -481,6 +491,7 @@
       }
       
       // set viewpoint
+      refEdge = 0;
       let x = Math.sqrt(halfShear[refEdge]);
       unframe = mat4.fromValues(
         1/x,   0, 0, 0,
@@ -577,7 +588,7 @@
     var bdryColor;
     
     // viewpoint
-    var refEdge = 0;
+    var refEdge;
     var unframe;
     
     function left(edge) {
@@ -1082,7 +1093,7 @@
       ]
     );
     
-    const simpleTorus = new Triangulation(
+    /*const simpleTorus = new Triangulation(
       [
         Fraction(1),
         Fraction(2, 3),
@@ -1096,7 +1107,7 @@
         2, 0+3,
         0+3, 1
       ]
-    );
+    );*/
 
     const hexTorus = new Triangulation(
       // some nice chord changes
@@ -1135,7 +1146,13 @@
       ]
     );
     
-    setTriangulation(hexTorus);
+    // set up surface selector
+    surfList = [tetrahedron, hexTorus];
+    surf.onchange = () => {
+      setTriangulation(surfList[surf.selectedIndex]);
+      sceneChanged = true;
+    };
+    surf.onchange();
     console.log(
       halfShear,
       nextEdge,
