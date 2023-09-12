@@ -615,6 +615,7 @@
       for (let k = 0; k < n_edges; k++) {
         updateShear(k);
       }
+      sceneChanged = true;
     }
     
     function reverseRefEdge() {
@@ -1148,11 +1149,11 @@
     
     // set up surface selector
     surfList = [tetrahedron, hexTorus];
-    surf.onchange = () => {
+    surf.addEventListener('change', () => {
       setTriangulation(surfList[surf.selectedIndex]);
       sceneChanged = true;
-    };
-    surf.onchange();
+    });
+    setTriangulation(surfList[surf.selectedIndex]);
     console.log(
       halfShear,
       nextEdge,
