@@ -161,6 +161,9 @@
     // triangulation
     uniform int next_edge[120];
     uniform float half_shear[60];
+    uniform float left_offset[120];
+    uniform float right_offset[120];
+    uniform float opp_offset[120];
     uniform vec3 edge_color[60];
     uniform int n_edges;
     
@@ -363,7 +366,6 @@
         float diff = sqrt(dot(v.xy - v.zw, v.xy - v.zw)); // |a - b|
         t_left = (m - q_a) / (sqrt(q_a) * diff);
         t_right = (m - q_b) / (sqrt(q_b) * diff);
-        float h = v.x*v.w - v.y*v.z; // -Im(ab') /* experimenting with horodiscs */
         
         // find the conformal scale factor of the Poincare projection
         /*float proj_scaling = 2. / (1.-r_sq);
@@ -395,8 +397,12 @@
         }
         
         /* experimenting with horodiscs */
-        float horo_shade = edge_mix(1., 0., h/min(q_a, q_b) - 1., 2., r_px);
-        horo_shade = edge_mix(horo_shade, 0., h/(diff*diff) - 1., 2., r_px);
+        float h = v.x*v.w - v.y*v.z; // -Im(ab');
+        float left_denom = left_offset[edge] * q_a;
+        float right_denom = right_offset[edge] * q_b;
+        float opp_denom = opp_offset[edge] * diff*diff;
+        float min_denom = min(min(left_denom, right_denom), opp_denom);
+        float horo_shade = edge_mix(0., 1., h/min_denom - 1., 2., r_px);
         color = mix(color, vec3(0.5), 0.5*horo_shade);
         
         // area-sample the disk boundary
@@ -487,8 +493,12 @@
       n_edges = lambda.length;
       halfLambda = lambda.map(Math.sqrt);
       halfShear = Array(n_edges);
+      leftOffset = Array(2*n_edges);
+      rightOffset = Array(2*n_edges);
+      oppOffset = Array(2*n_edges);
       nextEdge = Array.from(tri.nextEdge);
       updateAllShears();
+      updateAllOffsets();
       
       // clear flip stack
       flipStack = [];
@@ -547,6 +557,9 @@
     var n_edges;
     var halfLambda;
     var halfShear;
+    var leftOffset;
+    var rightOffset;
+    var oppOffset;
     var nextEdge;
     
     // flip stack
@@ -564,6 +577,7 @@
         flipStack.forEach(ptolemy => ptolemy.apply(lambda));
         halfLambda = lambda.map(Math.sqrt);
         updateAllShears();
+        updateAllOffsets();
         updateCurrFreqInputs();
       } else {
         freq = initLambda[edge].inverse();
@@ -584,6 +598,16 @@
         updateShear(right(edge));
         updateShear(left(edge_inv));
         updateShear(right(edge_inv));
+        updateOffsets(edge);
+        updateOffsets(edge_inv);
+        updateOffsets(left(edge));
+        updateOffsets(right(edge));
+        updateOffsets(left(edge_inv));
+        updateOffsets(right(edge_inv));
+        updateOffsets(inv(left(edge)));
+        updateOffsets(inv(right(edge)));
+        updateOffsets(inv(left(edge_inv)));
+        updateOffsets(inv(right(edge_inv)));
         
         // propagate change to current lambda lengths
         initLambda = lambda.map(x => x.clone());
@@ -633,7 +657,7 @@
     }
     
     function updateShear(edge) {
-      edge_inv = inv(edge);
+      let edge_inv = inv(edge);
       halfShear[edge % n_edges] = (
         halfLambda[left(edge) % n_edges] * halfLambda[left(edge_inv) % n_edges] /
         (halfLambda[right(edge) % n_edges] * halfLambda[right(edge_inv) % n_edges])
@@ -643,6 +667,30 @@
     function updateAllShears() {
       for (let k = 0; k < n_edges; k++) {
         updateShear(k);
+      }
+      sceneChanged = true;
+    }
+    
+    function updateOffsets(edge) {
+      // remember, the additive lambda length is *half* the distance between the
+      // horocycles. see Penner's _Decorated Teichmüller Theory,_ definition 4.4
+      leftOffset[edge] = (
+        lambda[edge % n_edges] * lambda[left(edge) % n_edges] /
+        lambda[right(edge) % n_edges]
+      );
+      rightOffset[edge] = (
+        lambda[right(edge) % n_edges] * lambda[edge % n_edges] /
+        lambda[left(edge) % n_edges]
+      );
+      oppOffset[edge] = (
+        lambda[left(edge) % n_edges] * lambda[right(edge) % n_edges] /
+        lambda[edge % n_edges]
+      );
+    }
+    
+    function updateAllOffsets() {
+      for (let k = 0; k < 2*n_edges; k++) {
+        updateOffsets(k);
       }
       sceneChanged = true;
     }
@@ -1099,13 +1147,21 @@
     // --- initialize triangulation ---
 
     const tetrahedron = new Triangulation(
-      [
+      /*[
         Fraction(1),
         Fraction(4, 5),
         Fraction(2, 3),
         Fraction(3, 5),
         Fraction(1, 2),
         Fraction(3, 4)
+      ],*/
+      [
+        Fraction(1),
+        Fraction(1),
+        Fraction(1),
+        Fraction(1),
+        Fraction(1),
+        Fraction(1)
       ],
       [
         3, 5+6,
@@ -1141,13 +1197,21 @@
 
     const hexTorus = new Triangulation(
       // some nice chord changes
-      [
+      /*[
         Fraction(1),
         Fraction(4, 5),
         Fraction(3, 2),
         Fraction(1, 2),
         Fraction(3, 5),
         Fraction(3, 4)
+      ],*/
+      [
+        Fraction(2),
+        Fraction(3/2),
+        Fraction(4/3),
+        Fraction(5/4),
+        Fraction(5/2),
+        Fraction(3)
       ],
       /*
       // lots of 9 denominators
@@ -1251,6 +1315,9 @@
           shortdim: Math.min(ctx.canvas.width, ctx.canvas.height),
           dpr: window.devicePixelRatio,
           half_shear: halfShear,
+          left_offset: leftOffset,
+          right_offset: rightOffset,
+          opp_offset: oppOffset,
           next_edge: nextEdge,
           edge_color: edgeColor,
           n_edges: n_edges,
