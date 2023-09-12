@@ -189,6 +189,29 @@
       return t < 0. ? (2. - erfc_r) : erfc_r;
     }
     
+    // how much of a pixel's sampling distribution falls on the negative side of an
+    // edge. `disp` is the pixel's displacement from the edge in pattern space
+    float neg_part(float pattern_disp, float scaling, float r_px) {
+      // find the displacement to the edge in the screen tangent space
+      float screen_disp = pattern_disp / scaling;
+
+      // integrate our pixel's sampling distribution on the screen tangent space to
+      // find out how much of the pixel falls on the negative side of the edge
+      return 0.5*erfc_appx(screen_disp / r_px);
+    }
+    
+    // find the color of a pixel near an edge between two colored regions.
+    // `neg` and `pos` are the colors on the negative and positive sides of the
+    // edge. `disp` is the displacement from the edge
+    
+    float edge_mix(float neg, float pos, float pattern_disp, float scaling, float r_px) {
+      return mix(pos, neg, neg_part(pattern_disp, scaling, r_px));
+    }
+    
+    vec3 edge_mix(vec3 neg, vec3 pos, float pattern_disp, float scaling, float r_px) {
+      return mix(pos, neg, neg_part(pattern_disp, scaling, r_px));
+    }
+    
     // how much of a pixel's sampling distribution falls on a thickened line.
     // `width` is the line thickness, in pixels. `pattern_disp` is the pixel's
     // displacement from the line in pattern space
@@ -340,6 +363,7 @@
         float diff = sqrt(dot(v.xy - v.zw, v.xy - v.zw)); // |a - b|
         t_left = (m - q_a) / (sqrt(q_a) * diff);
         t_right = (m - q_b) / (sqrt(q_b) * diff);
+        float h = v.x*v.w - v.y*v.z; // -Im(ab') /* experimenting with horodiscs */
         
         // find the conformal scale factor of the Poincare projection
         /*float proj_scaling = 2. / (1.-r_sq);
@@ -369,6 +393,11 @@
           if (fg_alpha > 0.) fg_color /= fg_color.a;
           color = mix(color, fg_color.rgb, fg_alpha);
         }
+        
+        /* experimenting with horodiscs */
+        float horo_shade = edge_mix(1., 0., h/min(q_a, q_b) - 1., 2., r_px);
+        horo_shade = edge_mix(horo_shade, 0., h/(diff*diff) - 1., 2., r_px);
+        color = mix(color, vec3(0.5), 0.5*horo_shade);
         
         // area-sample the disk boundary
         color = line_mix(bdry_color, color, 2., r_sq - 1., 2., r_px);
