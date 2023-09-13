@@ -314,7 +314,6 @@
         vec4 fg_color = vec4(0.);
         float fg_alpha = 0.;
         vec4 blur_color = vec4(0.);
-        float blur_samples = 0.;
         
         // later steps
         int step; /* for reference edge marking */
@@ -339,13 +338,10 @@
           float t_base = m / sqrt(q_a * q_b);
           
           // area-sample the edge
-          if (abs(t_base) < 16.*(proj_scaling * r_px)) {
-            vec4 mix = line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(0.), width, t_base, proj_scaling, r_px);
-            fg_color += mix;
-            fg_alpha = max(mix.a, fg_alpha);
-            blur_color += line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(edge_color[edge % n_edges], 0.), width, 0., proj_scaling, r_px);
-            blur_samples += 1.;
-          }
+          vec4 mix = line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(0.), width, t_base, proj_scaling, r_px);
+          fg_color += mix;
+          fg_alpha = max(mix.a, fg_alpha);
+          blur_color += line_mix(vec4(edge_color[edge % n_edges], 1.), vec4(edge_color[edge % n_edges], 0.), width, 0., proj_scaling, r_px);
           
           // move into the next triangle
           left_edge = next_edge[2*edge];
@@ -384,18 +380,14 @@
         }
         
         // area-sample the left and right edges
-        if (abs(t_left) < 16.*(proj_scaling * r_px)) {
-          vec4 mix = line_mix(vec4(edge_color[left_edge % n_edges], 1.), vec4(0.), width, t_left, proj_scaling, r_px);
-          fg_color += mix;
-          fg_alpha = max(mix.a, fg_alpha);
-        }
-        if (abs(t_right) < 16.*(proj_scaling * r_px)) {
-          vec4 mix = line_mix(vec4(edge_color[right_edge % n_edges], 1.), vec4(0.), width, t_right, proj_scaling, r_px);
-          fg_color += mix;
-          fg_alpha = max(mix.a, fg_alpha);
-        }
+        vec4 left_mix = line_mix(vec4(edge_color[left_edge % n_edges], 1.), vec4(0.), width, t_left, proj_scaling, r_px);
+        vec4 right_mix = line_mix(vec4(edge_color[right_edge % n_edges], 1.), vec4(0.), width, t_right, proj_scaling, r_px);
+        fg_color += left_mix + right_mix;
+        fg_alpha = max(max(left_mix.a, right_mix.a), fg_alpha);
+        
+        // paint the foreground
         if (step >= step_max) {
-          blur_color /= blur_samples;
+          blur_color /= float(step_max);
           color = mix(color, blur_color.rgb, blur_color.a);
           
           // update signed distance stuff for horodisc shading, since the loop
