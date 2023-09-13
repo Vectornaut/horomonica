@@ -291,6 +291,10 @@
         if (dot(v.xy, v.zw) < 0.) {
           v = half_turn * v;
           edge = (edge + n_edges) % (2*n_edges);
+          
+          // shear the opposite vertex to 1
+          float x = half_shear[edge % n_edges];
+          v *= vec4(vec2(1./x), vec2(x));
         }
         
         // during the walk, we'll use these to see whether we're beyond the left
@@ -318,12 +322,6 @@
         int right_edge;
         const int step_max = 20;
         for (/*int*/ step = 0; step < step_max; step++) {
-          // shear the opposite vertex to 1
-          if (step > 0 || edge != ref_edge) {
-            float x = half_shear[edge % n_edges];
-            v *= vec4(vec2(1./x), vec2(x));
-          }
-          
           // set up to find the signed distances to the left and right sides.
           // we look at `v` as a pair `(a, b)` of complex numbers
           m = dot(v.xy, v.zw); // Re(ab')
@@ -349,6 +347,7 @@
             blur_samples += 1.;
           }
           
+          // move into the next triangle
           left_edge = next_edge[2*edge];
           right_edge = next_edge[2*edge+1];
           if (m > q_a) {
@@ -360,6 +359,10 @@
           } else {
             break;
           }
+          
+          // shear the opposite vertex to 1
+          float x = half_shear[edge % n_edges];
+          v *= vec4(vec2(1./x), vec2(x));
         }
         
         // --- arrival ---
@@ -394,19 +397,24 @@
         if (step >= step_max) {
           blur_color /= blur_samples;
           color = mix(color, blur_color.rgb, blur_color.a);
+          
+          // update signed distance stuff for horodisc shading, since the loop
+          // ended before we had a chance to do that
+          q_a = dot(v.xy, v.xy); // |a|^2
+          q_b = dot(v.zw, v.zw); // |b|^2
         } else {
           if (fg_alpha > 0.) fg_color /= fg_color.a;
           color = mix(color, fg_color.rgb, fg_alpha);
         }
         
-        /* experimenting with horodiscs */
-        float h = v.x*v.w - v.y*v.z; // -Im(ab');
+        // sample the horodiscs
+        float h = v.x*v.w - v.y*v.z; // -Im(ab')
         float left_denom = left_offset[edge] * q_a;
         float right_denom = right_offset[edge] * q_b;
         float opp_denom = opp_offset[edge] * diff*diff;
         float min_denom = min(min(left_denom, right_denom), opp_denom);
-        float horo_shade = edge_mix(0., 1., h/(spacing * min_denom) - 1., 2., r_px);
-        color = mix(color, vec3(0.5), 0.5*horo_shade);
+        color = edge_mix(color, vec3(0.125), h/(spacing * min_denom) - 1., proj_scaling, r_px);
+        color = line_mix(vec3(0.753), color, width, h/(spacing * min_denom) - 1., proj_scaling, r_px);
         
         // area-sample the disk boundary
         color = line_mix(bdry_color, color, 2., r_sq - 1., 2., r_px);
