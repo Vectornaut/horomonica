@@ -167,6 +167,9 @@
     uniform vec3 edge_color[60];
     uniform int n_edges;
     
+    // horodiscs
+    uniform float spacing;
+    
     // viewpoint
     uniform int ref_edge;
     uniform mat4 unframe;
@@ -402,7 +405,7 @@
         float right_denom = right_offset[edge] * q_b;
         float opp_denom = opp_offset[edge] * diff*diff;
         float min_denom = min(min(left_denom, right_denom), opp_denom);
-        float horo_shade = edge_mix(0., 1., h/min_denom - 1., 2., r_px);
+        float horo_shade = edge_mix(0., 1., h/(spacing * min_denom) - 1., 2., r_px);
         color = mix(color, vec3(0.5), 0.5*horo_shade);
         
         // area-sample the disk boundary
@@ -446,6 +449,12 @@
     <div>tap an edge while touching outside the disk, or holding <i>shift</i>, to flip it</div>
     <div>use the keys <b>W E R / S D F</b> to scroll</div>
     <canvas id="test" width="650" height="650"></canvas>
+    <div class="control-bar">
+      <div class="control">
+        <label for="spacing">horocycle spacing:</label>
+        <input type="range" id="spacing" min="0", max="12", value="0", oninput="inputHoroSpacing();"/>
+      </div>
+    </div>
     <div>based on Robert Penner&rsquo;s &ldquo;<a href="http://preprints.ihes.fr/2021/M/M-21-12.pdf">Music of moduli spaces</a>&rdquo;</div>
     <div>example pieces: <a href="music/tetra.html">tetra</a> | <a href="music/music-box.html">music box</a></div>
   </div>
@@ -836,6 +845,13 @@
         updateShear(nigh[k]);
       }
       
+      // update offsets
+      updateOffsets(edge);
+      updateOffsets(edge_inv);
+      for (let k = 0; k < 4; k++) {
+        updateOffsets(nigh_inv[k]);
+      }
+      
       // update note frequencies
       updateNote(edge % n_edges);
       
@@ -1143,14 +1159,15 @@
     // --- initialize triangulation ---
 
     const tetrahedron = new Triangulation(
-      /*[
+      [
         Fraction(1),
         Fraction(4, 5),
         Fraction(2, 3),
         Fraction(3, 5),
         Fraction(1, 2),
         Fraction(3, 4)
-      ],*/
+      ],
+      /* for testing horodiscs
       [
         Fraction(1),
         Fraction(1),
@@ -1159,6 +1176,7 @@
         Fraction(1),
         Fraction(1)
       ],
+      */
       [
         3, 5+6,
         4, 3+6,
@@ -1193,14 +1211,15 @@
 
     const hexTorus = new Triangulation(
       // some nice chord changes
-      /*[
+      [
         Fraction(1),
         Fraction(4, 5),
         Fraction(3, 2),
         Fraction(1, 2),
         Fraction(3, 5),
         Fraction(3, 4)
-      ],*/
+      ],
+      /* for testing horodiscs
       [
         Fraction(2),
         Fraction(3/2),
@@ -1209,6 +1228,7 @@
         Fraction(5/2),
         Fraction(3)
       ],
+      */
       /*
       // lots of 9 denominators
       [
@@ -1254,6 +1274,18 @@
       bgColor,
       bdryColor
     )
+    
+    // --- other control interactions ---
+    
+    var horoSpacingRange = document.getElementById('spacing');
+    var horoSpacing = 1;
+    
+    function inputHoroSpacing() {
+      horoSpacing = Math.pow(1.5, horoSpacingRange.value);
+      sceneChanged = true;
+    }
+    
+    horoSpacingRange.oninput();
     
     // --- get canvases and hook up interactions ---
     
@@ -1317,6 +1349,7 @@
           next_edge: nextEdge,
           edge_color: edgeColor,
           n_edges: n_edges,
+          spacing: horoSpacing,
           ref_edge: refEdge,
           unframe: unframe,
           view: view,
