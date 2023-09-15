@@ -1102,19 +1102,19 @@
         event => forEachChangedTouch(event, instrumentTouchDrop)
       );
     }
-
+    
     // --- viewpoint interactions ---
-
+    
     const viewSpeed = 0.1; // in curvature units per second
-
+    
     var lastTime = 0;
-
+    
     var walk = 0;
     var fStrafe = 0;
     var bStrafe = 0;
     const vUnframe = mat4.create();
     const stepUnframe = mat4.create();
-
+    
     // matrix exponential. default number of terms imitates the Julia base
     // library's `expm1_small`
     const term = mat4.create();
@@ -1128,7 +1128,7 @@
         mat4.add(out, out, term);
       }
     }
-
+    
     function viewKeyDown(event) {
       if (event.key === 'd') walk = -viewSpeed;
       else if (event.key === 'e') walk = viewSpeed;
@@ -1138,26 +1138,26 @@
       else if (event.key === 'f') bStrafe = viewSpeed;
       sceneChanged = true;
     }
-
+    
     function viewKeyUp(event) {
       if (event.key === 'd' || event.key === 'e') walk = 0;
       else if (event.key === 's' || event.key === 'f') bStrafe = 0;
       else if (event.key === 'w' || event.key === 'r') fStrafe = 0;
       sceneChanged = true;
     }
-
+    
     function viewMoving() {
       return walk != 0 || fStrafe != 0 || bStrafe != 0;
     }
-
+    
     // binding
     function bindKeyboard(element) {
       element.addEventListener('keydown', viewKeyDown);
       element.addEventListener('keyup', viewKeyUp);
     }
-
+    
     // --- initialize triangulation ---
-
+    
     const tetrahedron = new Triangulation(
       [
         Fraction(1),
@@ -1208,7 +1208,7 @@
         0+3, 1
       ]
     );*/
-
+    
     const hexTorus = new Triangulation(
       // some nice chord changes
       [
@@ -1329,7 +1329,7 @@
       quickExp(stepUnframe, vUnframe);
       mat4.multiply(unframe, unframe, stepUnframe);
       lastTime = time;
-
+      
       if (sceneChanged) {
         // size canvas
         console.log("repaint");

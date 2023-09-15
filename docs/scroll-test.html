@@ -12,7 +12,7 @@
       background-color: #202020;
       font-family: sans-serif;
     }
-
+    
     #display {
       width: 600px;
       height: 600px;
@@ -20,10 +20,10 @@
       background-color: #061722;
     }
   </style>
-
+  
   <!-- OpenGL utilities -->
   <script type="text/javascript" src="gl-matrix-min.js"></script>
-
+  
   <title>Scroll test</title>
 </head>
 
@@ -33,12 +33,12 @@
     of display dimensions!
   -->
   <canvas id="display" width="600", height="600"></canvas>
-
+  
   <script>
     // --- scroll interaction ---
-
+    
     const vec2 = glMatrix.vec2;
-
+    
     function eventDir(event) {
       const rect = event.target.getBoundingClientRect();
       const shortdim = Math.min(rect.width, rect.height);
@@ -49,19 +49,19 @@
       vec2.normalize(dir, dir);
       return dir;
     }
-
+    
     const trackedTouches = new Map();
-
+    
     function forEachChangedTouch(event, action) {
       touches = event.changedTouches;
       for (let m = 0; m < touches.length; m++) action(touches[m]);
       event.preventDefault();
     }
-
+    
     function scrollTouchStart(touch) {
       trackedTouches.set(touch.identifier, [eventDir(touch)]);
     }
-
+    
     function scrollTouchMove(touch) {
       if (trackedTouches.has(touch.identifier)) {
         track = trackedTouches.get(touch.identifier);
@@ -69,14 +69,14 @@
         sceneChanged = true;
       }
     }
-
+    
     function scrollTouchDrop(touch) {
       if (trackedTouches.has(touch.identifier)) {
         trackedTouches.delete(touch.identifier);
         sceneChanged = true;
       }
     }
-
+    
     // binding
     function bindPointer(element) {
       element.addEventListener(
@@ -96,18 +96,18 @@
         event => forEachChangedTouch(event, scrollTouchDrop)
       );
     }
-
+    
     // --- get canvases and hook up interactions ---
     
     var display = document.querySelector('#display');
     bindPointer(display);
-
+    
     const ctx = display.getContext("2d");
-
+    
     // set ink
     ctx.lineWidth = 2;
     ctx.fillStyle = "white";
-
+    
     // --- define rendering routine ---
     
     var sceneChanged = true;
@@ -120,37 +120,37 @@
         ctx.lineTo(300*(1 + 0.5*track[t][0]), 300*(1 - 0.5*track[t][1]));
         ctx.stroke();
       }
-
+      
       ctx.strokeStyle = "white";
       ctx.beginPath();
       ctx.arc(300*(1 + 0.5*track[0][0]), 300*(1 - 0.5*track[0][1]), 5, 0, 2*Math.PI);
       ctx.stroke();
-
+      
       let fin = track[track.length-1];
       ctx.beginPath();
       ctx.arc(300*(1 + 0.5*fin[0]), 300*(1 - 0.5*fin[1]), 5, 0, 2*Math.PI);
       ctx.stroke();
-
+      
       const half = vec2.fromValues(
         Math.sign(fin[1])*Math.sqrt(0.5*(1 + fin[0])),
         Math.sqrt(0.5*(1 - fin[0]))
       );
-
+      
       ctx.beginPath();
       ctx.arc(300*(1 + 0.5*half[0]), 300*(1 - 0.5*half[1]), 5, 0, 2*Math.PI);
       ctx.fill();
     }
-
+    
     function render(time) {
       if (sceneChanged) {
         console.log("repaint");
-
+        
         // size canvas
         /*twgl.resizeCanvasToDisplaySize(display);*/
-
+        
         // clear canvas
         ctx.clearRect(0, 0, 600, 600);
-
+        
         // paint canvas
         trackedTouches.forEach(showTouch);
         
