@@ -35,8 +35,7 @@
     
     .canvas-holder {
       margin: 30px 0 0 30px;
-      min-width: 680px;
-      min-height: 680px;
+      display: inline-block;
       border-radius: 50%;
     }
     
@@ -171,12 +170,23 @@
     uniform float dpr;
     
     // triangulation
-    uniform int next_edge[120];
-    uniform float half_shear[60];
-    uniform float left_offset[120];
-    uniform float right_offset[120];
-    uniform float opp_offset[120];
-    uniform vec3 edge_color[60];
+    /*
+      each GPU has a limit to the total number of uniform components it can
+      accept. if you exceed it, the shader may not run; i've even seen it fail
+      without a JavaScript error (on Safari). the limit is available to OpenGL
+      as the constant MAX_FRAGMENT_UNIFORM_COMPONENTS, and you can also look it
+      up for a given device in the manufacturer's documentation. since all the
+      triangulations are hard-coded for now, i've just made the arrays as short
+      as possible to be on the safe side. in the future, i'd make the arrays
+      just small enough to work on all of the devices listed in Apple's "OpenGL
+      Capabilities Tables", since Apple devices have the lowest limits i've seen
+    */
+    uniform int next_edge[24];
+    uniform float half_shear[12];
+    uniform float left_offset[24];
+    uniform float right_offset[24];
+    uniform float opp_offset[24];
+    uniform vec3 edge_color[12];
     uniform int n_edges;
     
     // horodiscs
